@@ -1,16 +1,17 @@
 package main
 
 import (
-	"net/http"
+	"github.com/iliyamo/go-learning/internal/router" // مسیر درست رو وارد کن
 
 	"github.com/labstack/echo/v4"
 )
 
 func main() {
 	e := echo.New()
-	e.GET("/", func(c echo.Context) error {
-		return c.String(http.StatusOK, "Hello, Echo!")
-	})
 
-	e.Logger.Fatal(e.Start(":8080"))
+	// ثبت تمام مسیرها
+	router.RegisterRoutes(e)
+
+	// اجرا روی پورت 8080
+	e.Start(":8080")
 }
