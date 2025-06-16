@@ -1,111 +1,169 @@
-package handlers
+package handler
 
 import (
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
-	models "github.com/iliyamo/go-learning/internal/model" // مدل‌های دیتابیس (User)
-	"github.com/iliyamo/go-learning/internal/repository"   // ریپازیتوری برای کاربران
-	"github.com/labstack/echo/v4"                          // فریم‌ورک HTTP
-	"golang.org/x/crypto/bcrypt"                           // کتابخانه هش کردن رمز عبور
+	"github.com/iliyamo/go-learning/internal/model"
+	"github.com/iliyamo/go-learning/internal/repository"
+	"github.com/iliyamo/go-learning/internal/utils"
+	"github.com/labstack/echo/v4"
+	"golang.org/x/crypto/bcrypt"
 )
 
-// AuthRequest ساختار دریافت اطلاعات از کلاینت برای ثبت‌نام و ورود
+// AuthRequest ساختار داده‌های ثبت‌نام و ورود
 type AuthRequest struct {
-	FullName string `json:"full_name"` // فقط در ثبت‌نام استفاده می‌شود
-	Email    string `json:"email"`     // ایمیل کاربر
-	Password string `json:"password"`  // رمز عبور کاربر
+	FullName string `json:"full_name"` // فقط برای ثبت‌نام استفاده می‌شود
+	Email    string `json:"email"`
+	Password string `json:"password"`
 }
 
-// jwtSecret کلید محرمانه برای امضای JWT (در محیط واقعی بهتره از .env بخونی)
+// کلید مخفی JWT (پیشنهاد: از env بخون)
 var jwtSecret = []byte("your_secret_key")
 
-// createToken یک JWT شامل اطلاعات کاربر (claims) تولید می‌کند
-func createToken(user *models.User) (string, error) {
-	// ساخت claims دلخواه
+// ایجاد یک JWT ساده برای توکن
+func createToken(user *model.User) (string, error) {
 	claims := jwt.MapClaims{
 		"user_id": user.ID,
 		"email":   user.Email,
 		"role_id": user.RoleID,
-		"exp":     time.Now().Add(24 * time.Hour).Unix(), // تاریخ انقضا: ۲۴ ساعت بعد
+		"exp":     time.Now().Add(15 * time.Minute).Unix(),
 	}
-
-	// ساخت توکن با امضای HMAC
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-
-	// امضای نهایی توکن با کلید مخفی
 	return token.SignedString(jwtSecret)
 }
 
-// Register هندلری برای ثبت‌نام کاربر جدید است
+// ✅ Register: ثبت‌نام کاربر
 func Register(c echo.Context) error {
-	// گرفتن ریپازیتوری کاربر از context
 	db := c.Get("db").(*repository.UserRepository)
-
-	// گرفتن داده‌های درخواست و bind به ساختار
 	req := new(AuthRequest)
+
 	if err := c.Bind(req); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid request"})
 	}
 
-	// هش کردن رمز عبور با bcrypt
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to hash password"})
 	}
 
-	// ساخت ساختار کاربر برای ذخیره در دیتابیس
-	user := &models.User{
+	user := &model.User{
 		FullName:     req.FullName,
 		Email:        req.Email,
 		PasswordHash: string(hashedPassword),
-		RoleID:       2, // نقش پیش‌فرض (مثلاً: کاربر معمولی)
+		RoleID:       2,
 		CreatedAt:    time.Now(),
 		UpdatedAt:    time.Now(),
 	}
 
-	// ذخیره کاربر در دیتابیس
 	if err := db.CreateUser(user); err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to create user"})
 	}
 
-	// پاسخ موفق
 	return c.JSON(http.StatusCreated, map[string]string{"message": "user registered successfully"})
 }
 
-// Login هندلری برای ورود کاربر و تولید JWT است
+// ✅ Login: ورود کاربر و تولید access + refresh token
 func Login(c echo.Context) error {
-	// گرفتن ریپازیتوری از context
-	db := c.Get("db").(*repository.UserRepository)
-
-	// گرفتن داده‌های ورودی از کلاینت
+	userRepo := c.Get("db").(*repository.UserRepository)
 	req := new(AuthRequest)
+
 	if err := c.Bind(req); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid request"})
 	}
 
-	// جستجوی کاربر با ایمیل
-	user, err := db.GetUserByEmail(req.Email)
+	user, err := userRepo.GetUserByEmail(req.Email)
+	if err != nil || user == nil {
+		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "invalid credentials"})
+	}
+
+	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password)); err != nil {
+		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "invalid credentials"})
+	}
+
+	// Access Token
+	accessToken, err := utils.GenerateAccessToken(uint(user.ID), user.Email, uint(user.RoleID))
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "database error"})
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to generate access token"})
+	}
+
+	// Refresh Token
+	refreshToken, err := utils.GenerateRefreshToken(uint(user.ID), user.Email, uint(user.RoleID))
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to generate refresh token"})
+	}
+
+	// ذخیره در پایگاه‌داده
+	refreshRepo := repository.NewRefreshTokenRepository(userRepo.DB)
+	if err := refreshRepo.Store(refreshToken, user.ID); err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to store refresh token"})
+	}
+
+	// خروجی به کلاینت
+	return c.JSON(http.StatusOK, map[string]string{
+		"access_token":  accessToken,
+		"refresh_token": refreshToken,
+	})
+}
+
+// ✅ Profile: دریافت اطلاعات کاربر با JWT
+// Profile handler اطلاعات کامل کاربر را برمی‌گرداند
+func Profile(c echo.Context) error {
+	// مرحله 1: گرفتن هدر Authorization
+	authHeader := c.Request().Header.Get("Authorization")
+	if authHeader == "" {
+		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Missing token"})
+	}
+
+	// مرحله 2: حذف "Bearer " از ابتدا
+	tokenString := strings.TrimPrefix(authHeader, "Bearer ")
+
+	// مرحله 3: اعتبارسنجی توکن
+	claims, err := utils.ValidateToken(tokenString)
+	if err != nil {
+		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Invalid token"})
+	}
+
+	// مرحله 4: گرفتن user_id از claims
+	userID := int(claims.UserID)
+
+	// مرحله 5: دسترسی به repo از context
+	repo := c.Get("db").(*repository.UserRepository)
+
+	// مرحله 6: گرفتن کاربر از دیتابیس
+	user, err := repo.GetUserByID(userID)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Database error"})
 	}
 	if user == nil {
-		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "invalid credentials"})
+		return c.JSON(http.StatusNotFound, echo.Map{"error": "User not found"})
 	}
 
-	// بررسی صحت رمز عبور وارد شده
-	err = bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password))
+	// مرحله 7: بازگرداندن اطلاعات کامل
+	return c.JSON(http.StatusOK, user)
+}
+
+// ✅ Logout: حذف refresh token از دیتابیس (بی‌اثر کردن آن)
+func Logout(c echo.Context) error {
+	authHeader := c.Request().Header.Get("Authorization")
+	if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ") {
+		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "missing or invalid token"})
+	}
+
+	tokenString := strings.TrimPrefix(authHeader, "Bearer ")
+	claims, err := utils.ValidateToken(tokenString)
 	if err != nil {
-		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "invalid credentials"})
+		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "invalid or expired token"})
 	}
 
-	// ایجاد توکن JWT در صورت اعتبارسنجی موفق
-	token, err := createToken(user)
-	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to create token"})
+	userRepo := c.Get("db").(*repository.UserRepository)
+	refreshRepo := repository.NewRefreshTokenRepository(userRepo.DB)
+
+	if err := refreshRepo.DeleteAll(claims.UserID); err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to logout"})
 	}
 
-	// ارسال توکن به عنوان پاسخ
-	return c.JSON(http.StatusOK, map[string]string{"access_token": token})
+	return c.JSON(http.StatusOK, map[string]string{"message": "logged out successfully"})
 }

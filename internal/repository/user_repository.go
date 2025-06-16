@@ -4,54 +4,82 @@ import (
 	"database/sql"
 	"errors"
 
-	models "github.com/iliyamo/go-learning/internal/model"
+	"github.com/iliyamo/go-learning/internal/model"
 )
 
-// UserRepository ساختار مدیریت ارتباط با دیتابیس برای کاربران
+// UserRepository ساختاری برای انجام عملیات روی جدول users
 type UserRepository struct {
-	DB *sql.DB // اتصال به دیتابیس SQL
+	DB *sql.DB // اتصال به پایگاه داده
 }
 
-// NewUserRepository سازنده برای ایجاد یک نمونه UserRepository با اتصال دیتابیس
+func (r *UserRepository) GetUserByID(id int) (*model.User, error) {
+	query := `
+		SELECT id, full_name, email, password_hash, role_id, created_at, updated_at
+		FROM users
+		WHERE id = ?
+	`
+
+	var user model.User
+	err := r.DB.QueryRow(query, id).Scan(
+		&user.ID,
+		&user.FullName,
+		&user.Email,
+		&user.PasswordHash,
+		&user.RoleID,
+		&user.CreatedAt,
+		&user.UpdatedAt,
+	)
+
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	return &user, nil
+}
+
+// NewUserRepository یک نمونه جدید از UserRepository ایجاد می‌کند
 func NewUserRepository(db *sql.DB) *UserRepository {
 	return &UserRepository{DB: db}
 }
 
-// CreateUser یک کاربر جدید را در جدول users درج می‌کند
-func (r *UserRepository) CreateUser(user *models.User) error {
+// CreateUser یک کاربر جدید را در جدول users وارد می‌کند
+func (r *UserRepository) CreateUser(user *model.User) error {
 	query := `
-		INSERT INTO users (email, password_hash, role_id)
-		VALUES (?, ?, ?)
+		INSERT INTO users (full_name, email, password_hash, role_id)
+		VALUES (?, ?, ?, ?)
 	`
-	// اجرای کوئری درج داده‌ها
-	_, err := r.DB.Exec(query, user.Email, user.PasswordHash, user.RoleID)
-	return err // بازگرداندن خطا در صورت وجود
+
+	_, err := r.DB.Exec(query, user.FullName, user.Email, user.PasswordHash, user.RoleID)
+	return err
 }
 
-// GetUserByEmail کاربری را بر اساس ایمیل جستجو و برمی‌گرداند
-func (r *UserRepository) GetUserByEmail(email string) (*models.User, error) {
+// GetUserByEmail کاربر را بر اساس ایمیل از پایگاه داده پیدا می‌کند
+func (r *UserRepository) GetUserByEmail(email string) (*model.User, error) {
 	query := `
-		SELECT id, email, password_hash, role_id FROM users
+		SELECT id, full_name, email, password_hash, role_id, created_at, updated_at
+		FROM users
 		WHERE email = ?
 	`
 
-	var user models.User
-
-	// اجرای کوئری و اسکن نتیجه در ساختار user
+	var user model.User
 	err := r.DB.QueryRow(query, email).Scan(
 		&user.ID,
+		&user.FullName,
 		&user.Email,
 		&user.PasswordHash,
 		&user.RoleID,
+		&user.CreatedAt,
+		&user.UpdatedAt,
 	)
 
-	// مدیریت خطاها
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			// اگر کاربر پیدا نشد، مقدار nil و خطای nil برگردانده شود
+			// کاربر پیدا نشد
 			return nil, nil
 		}
-		// سایر خطاهای احتمالی برگردانده شوند
 		return nil, err
 	}
 

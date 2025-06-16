@@ -1,18 +1,22 @@
 package router
 
 import (
-	handlers "github.com/iliyamo/go-learning/internal/handler" // جایگزین کن با مسیر واقعی پکیج handlers
+	"github.com/iliyamo/go-learning/internal/handler"
 	"github.com/labstack/echo/v4"
 )
 
-// RegisterRoutes تمام مسیرهای API را در اینجا ثبت می‌کنیم
+// ✅ ثبت تمام روت‌های مربوط به احراز هویت
 func RegisterRoutes(e *echo.Echo) {
-	// مسیرهای مربوط به احراز هویت (Authentication)
 	auth := e.Group("/auth")
 
-	// مسیر POST برای ثبت‌نام کاربر جدید
-	auth.POST("/register", handlers.Register)
+	// 🟢 ثبت‌نام
+	auth.POST("/register", handler.Register)
 
-	// مسیر POST برای ورود کاربر
-	auth.POST("/login", handlers.Login)
+	// 🟢 ورود
+	auth.POST("/login", handler.Login)
+
+	// 🟢 دریافت پروفایل (با JWT)
+	auth.GET("/profile", handler.Profile)
+
+	// در مراحل بعد: logout و refresh هم اینجا اضافه می‌شن
 }
