@@ -1,64 +1,80 @@
 package utils
 
 import (
-	"errors"
-	"time"
+	"errors" // برای نمایش خطا در اعتبارسنجی توکن
+	"time"   // برای زمان‌بندی انقضای توکن
 
-	"github.com/golang-jwt/jwt/v5"
+	"github.com/golang-jwt/jwt/v5" // پکیج JWT برای ساخت و اعتبارسنجی توکن
 )
 
-// ✅ ساختار Claims اختصاصی ما برای JWT
+// JWTClaims ساختار داده‌ای است که درون توکن ذخیره می‌شود:
+// - UserID: شناسهٔ کاربر
+// - Email: ایمیل کاربر
+// - RoleID: نقش کاربر (مثلاً admin یا member)
+// همچنین با استفاده از RegisteredClaims قادر به تنظیم exp و iat هستیم.
 type JWTClaims struct {
-	UserID               uint   `json:"user_id"` // شناسه کاربر
+	UserID               uint   `json:"user_id"` // شناسهٔ کاربر
 	Email                string `json:"email"`   // ایمیل کاربر
 	RoleID               uint   `json:"role_id"` // نقش کاربر
-	jwt.RegisteredClaims        // شامل exp, iat و ...
+	jwt.RegisteredClaims        // فیلدهای استاندارد مثل exp, iat
 }
 
-// 🔐 کلید مخفی برای امضای JWT (پیشنهاد: از ENV بخون)
+// jwtSecretKey کلیدی است که با آن توکن‌ها را امضا می‌کنیم.
+// پیشنهاد می‌شود این مقدار را در متغیر محیطی نگه دارید.
 var jwtSecretKey = []byte("your_secret_key")
 
-// ✅ GenerateAccessToken → تولید توکن دسترسی کوتاه‌مدت (مثلاً 15 دقیقه‌ای)
+// GenerateAccessToken یک توکن کوتاه‌مدت می‌سازد که معمولاً ۱۵ دقیقه اعتبار دارد.
+// این توکن برای دسترسی به مسیرهای محافظت‌شده استفاده می‌شود.
 func GenerateAccessToken(userID uint, email string, roleID uint) (string, error) {
+	// تنظیم ادعاها (Claims) در توکن
 	claims := JWTClaims{
 		UserID: userID,
 		Email:  email,
 		RoleID: roleID,
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(15 * time.Minute)),
-			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(15 * time.Minute)), // انقضا پس از 15 دقیقه
+			IssuedAt:  jwt.NewNumericDate(time.Now()),                       // زمان صدور توکن
 		},
 	}
+	// ساخت توکن با الگوریتم HS256 و ادعاهای تنظیم‌شده
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	// امضای توکن با کلید مخفی
 	return token.SignedString(jwtSecretKey)
 }
 
-// ✅ GenerateRefreshToken → تولید توکن بلندمدت برای تمدید (مثلاً 7 روزه)
+// GenerateRefreshToken یک توکن بلندمدت (مثلاً ۷ روزه) می‌سازد
+// برای درخواست توکن دسترسی جدید (Access Token) استفاده می‌شود.
 func GenerateRefreshToken(userID uint, email string, roleID uint) (string, error) {
 	claims := JWTClaims{
 		UserID: userID,
 		Email:  email,
 		RoleID: roleID,
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(7 * 24 * time.Hour)),
-			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(7 * 24 * time.Hour)), // انقضا پس از 7 روز
+			IssuedAt:  jwt.NewNumericDate(time.Now()),                         // زمان صدور توکن
 		},
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return token.SignedString(jwtSecretKey)
 }
 
-// ✅ ValidateToken → اعتبارسنجی JWT و استخراج claims
+// ValidateToken توکنی را که ارسال شده بررسی می‌کند:
+// 1. امضا معتبر باشد
+// 2. توکن منقضی نشده باشد
+// سپس ادعاها (Claims) را برمی‌گرداند.
 func ValidateToken(tokenStr string) (*JWTClaims, error) {
+	// پارس توکن با ساختار JWTClaims
 	token, err := jwt.ParseWithClaims(tokenStr, &JWTClaims{}, func(token *jwt.Token) (interface{}, error) {
-		return jwtSecretKey, nil
+		return jwtSecretKey, nil // بازگرداندن کلید برای بررسی امضا
 	})
 	if err != nil {
+		// در صورت خطا در پارس یا امضا
 		return nil, err
 	}
 
-	// بررسی معتبر بودن token و تبدیل به claims سفارشی خودمون
+	// تبدیل claims به نوع سفارشی JWTClaims
 	claims, ok := token.Claims.(*JWTClaims)
+	// بررسی صحت و معتبر بودن توکن
 	if !ok || !token.Valid {
 		return nil, errors.New("invalid or expired token")
 	}
