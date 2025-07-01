@@ -1,7 +1,10 @@
 // internal/handler/author.go
+
 package handler
 
 import (
+	"database/sql"
+	"errors" // برای بررسی خطاهایی مثل sql.ErrNoRows
 	"net/http"
 	"strconv"
 	"time"
@@ -22,21 +25,18 @@ type AuthorRequest struct {
 
 // 🔹 ایجاد نویسنده جدید
 func CreateAuthor(c echo.Context) error {
-	repo := c.Get("author_repo").(*repository.AuthorRepository) // گرفتن ریپازیتوری از context
-	req := new(AuthorRequest)                                   // ساختار برای گرفتن دادهٔ ورودی
+	repo := c.Get("author_repo").(*repository.AuthorRepository)
+	req := new(AuthorRequest)
 
-	// تبدیل JSON ورودی به ساختار Go
 	if err := c.Bind(req); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid request"})
 	}
 
-	// تبدیل تاریخ تولد از رشته به time.Time
 	birthDate, err := time.Parse("2006-01-02", req.BirthDate)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid birth_date format, use YYYY-MM-DD"})
 	}
 
-	// ساخت نویسنده جدید بر اساس دادهٔ ورودی
 	author := &model.Author{
 		Name:      req.Name,
 		Biography: req.Biography,
@@ -44,12 +44,11 @@ func CreateAuthor(c echo.Context) error {
 		CreatedAt: time.Now(),
 	}
 
-	// ذخیره در دیتابیس
 	if err := repo.CreateAuthor(author); err != nil {
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "failed to create author"})
 	}
 
-	return c.JSON(http.StatusCreated, author) // نویسنده با موفقیت ایجاد شد
+	return c.JSON(http.StatusCreated, author)
 }
 
 // 🔹 دریافت لیست همه نویسنده‌ها
@@ -68,13 +67,11 @@ func GetAllAuthors(c echo.Context) error {
 func GetAuthorByID(c echo.Context) error {
 	repo := c.Get("author_repo").(*repository.AuthorRepository)
 
-	// گرفتن مقدار id از پارامتر URL
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid id"})
 	}
 
-	// گرفتن نویسنده از دیتابیس
 	author, err := repo.GetAuthorByID(id)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "failed to fetch author"})
@@ -89,8 +86,6 @@ func GetAuthorByID(c echo.Context) error {
 // 🔹 بروزرسانی اطلاعات نویسنده
 func UpdateAuthor(c echo.Context) error {
 	repo := c.Get("author_repo").(*repository.AuthorRepository)
-
-	// دریافت id از URL
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid id"})
@@ -101,13 +96,11 @@ func UpdateAuthor(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid request"})
 	}
 
-	// تبدیل رشته تاریخ تولد به time.Time
 	birthDate, err := time.Parse("2006-01-02", req.BirthDate)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid birth_date format, use YYYY-MM-DD"})
 	}
 
-	// آماده‌سازی داده برای بروزرسانی
 	author := &model.Author{
 		ID:        id,
 		Name:      req.Name,
@@ -115,8 +108,11 @@ func UpdateAuthor(c echo.Context) error {
 		BirthDate: birthDate,
 	}
 
-	// بروزرسانی در دیتابیس
 	if err := repo.UpdateAuthor(author); err != nil {
+		// بررسی اینکه آیا خطا به‌خاطر نبودن نویسنده است
+		if errors.Is(err, sql.ErrNoRows) {
+			return c.JSON(http.StatusNotFound, echo.Map{"error": "author not found"})
+		}
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "failed to update author"})
 	}
 
@@ -126,15 +122,15 @@ func UpdateAuthor(c echo.Context) error {
 // 🔹 حذف نویسنده با شناسه خاص
 func DeleteAuthor(c echo.Context) error {
 	repo := c.Get("author_repo").(*repository.AuthorRepository)
-
-	// دریافت id از URL
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid id"})
 	}
 
-	// حذف نویسنده از دیتابیس
 	if err := repo.DeleteAuthor(id); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return c.JSON(http.StatusNotFound, echo.Map{"error": "author not found"})
+		}
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "failed to delete author"})
 	}
 
