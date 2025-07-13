@@ -1,16 +1,86 @@
+// cmd/server/main.go
 package main
 
 import (
-	"net/http"
+	"errors"
+	"fmt"
+	"log"
+	"os"
 
+	"github.com/joho/godotenv"
 	"github.com/labstack/echo/v4"
+
+	"github.com/iliyamo/go-learning/internal/database"
+	"github.com/iliyamo/go-learning/internal/repository"
+	"github.com/iliyamo/go-learning/internal/router"
 )
 
-func main() {
+// App ساختار کلی برنامه شامل وابستگی‌ها
+type App struct {
+	Server      *echo.Echo
+	UserRepo    *repository.UserRepository
+	RefreshRepo *repository.RefreshTokenRepository
+	AuthorRepo  *repository.AuthorRepository
+	BookRepo    *repository.BookRepository // ✅ اضافه‌شده برای مدیریت کتاب‌ها
+}
+
+// NewApp مقداردهی اولیهٔ برنامه
+func NewApp() (*App, error) {
+	cwd, _ := os.Getwd()
+	log.Println("Current working directory:", cwd)
+
+	_ = godotenv.Load("../../.env")
+
+	user := os.Getenv("DB_USER")
+	host := os.Getenv("DB_HOST")
+	port := os.Getenv("DB_PORT")
+	name := os.Getenv("DB_NAME")
+	if user == "" || host == "" || port == "" || name == "" {
+		log.Println("\u274c لطفاً متغیرهای DB_USER, DB_HOST, DB_PORT و DB_NAME را تنظیم کنید.")
+		return nil, errors.New("database connection failed")
+	}
+
+	db := database.InitDB()
+	if db == nil {
+		return nil, errors.New("database connection failed")
+	}
+
+	userRepo := repository.NewUserRepository(db)
+	refreshRepo := repository.NewRefreshTokenRepository(db)
+	authorRepo := repository.NewAuthorRepository(db)
+	bookRepo := repository.NewBookRepository(db) // ✅ اضافه‌شده
+
 	e := echo.New()
-	e.GET("/", func(c echo.Context) error {
-		return c.String(http.StatusOK, "Hello, Echo!")
+	e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			c.Set("user_repo", userRepo)
+			c.Set("refresh_token_repo", refreshRepo)
+			c.Set("author_repo", authorRepo)
+			c.Set("book_repo", bookRepo) // ✅ اضافه‌شده
+			return next(c)
+		}
 	})
 
-	e.Logger.Fatal(e.Start(":8080"))
+	router.RegisterRoutes(e)
+
+	return &App{
+		Server:      e,
+		UserRepo:    userRepo,
+		RefreshRepo: refreshRepo,
+		AuthorRepo:  authorRepo,
+		BookRepo:    bookRepo, // ✅ اضافه‌شده
+	}, nil
+}
+
+// main نقطهٔ شروع برنامه
+func main() {
+	app, err := NewApp()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	log.Println("Server running on http://localhost:8080")
+	if err := app.Server.Start(":8080"); err != nil {
+		log.Fatal(fmt.Errorf("server error: %w", err))
+	}
 }
