@@ -20,6 +20,41 @@ type AuthRequest struct {
 	Password string `json:"password"`  // رمز عبور ساده‌ی کاربر
 }
 
+// RefreshToken دریافت Refresh Token و برگرداندن Access Token جدید
+func RefreshToken(c echo.Context) error {
+	type request struct {
+		RefreshToken string `json:"refresh_token"`
+	}
+	var req request
+	if err := c.Bind(&req); err != nil || req.RefreshToken == "" {
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": "درخواست نامعتبر"})
+	}
+
+	// 1) اعتبارسنجی امضای JWT رفرش‌توکن
+	claims, err := utils.ValidateToken(req.RefreshToken)
+	if err != nil {
+		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "توکن نامعتبر یا منقضی‌شده"})
+	}
+
+	// 2) اطمینان از وجود این توکن در DB (For security / logout)
+	refreshRepo := c.Get("refresh_token_repo").(*repository.RefreshTokenRepository)
+	ok, err := refreshRepo.Validate(req.RefreshToken, int(claims.UserID)) // 🆕 تبدیل uint به int
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "خطای سرور"})
+	}
+	if !ok {
+		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "توکن ابطال شده"})
+	}
+
+	// 3) تولید Access Token تازه
+	access, err := utils.GenerateAccessToken(claims.UserID, claims.Email, claims.RoleID)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "ساخت توکن ناموفق"})
+	}
+
+	return c.JSON(http.StatusOK, echo.Map{"access_token": access})
+}
+
 // Register کاربر جدید را ثبت می‌کند
 func Register(c echo.Context) error {
 	// 1. دریافت و تبدیل بدنه‌ی JSON به AuthRequest

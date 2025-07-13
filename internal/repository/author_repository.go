@@ -2,35 +2,41 @@
 package repository
 
 import (
-	"database/sql" // ارتباط با دیتابیس MySQL/MariaDB
-	"errors"       // بررسی خطاها مثل sql.ErrNoRows
-	"time"         // برای مقداردهی created_at
+	"database/sql"
+	"time"
 
-	"github.com/iliyamo/go-learning/internal/model" // ساختار دادهٔ Author
+	"github.com/iliyamo/go-learning/internal/model"
 )
 
-// AuthorRepository لایهٔ دسترسی به داده برای جدول authors
-// متدهای CRUD را فراهم می‌کند.
+// AuthorRepository ساختار ریپازیتوری برای دسترسی به جدول نویسنده‌ها در دیتابیس است.
 type AuthorRepository struct {
-	DB *sql.DB // هندلر اتصال به پایگاه داده
+	DB *sql.DB // اتصال به دیتابیس
 }
 
-// NewAuthorRepository سازندهٔ ریپازیتوری
+// NewAuthorRepository ریپازیتوری جدیدی می‌سازد.
 func NewAuthorRepository(db *sql.DB) *AuthorRepository {
 	return &AuthorRepository{DB: db}
 }
 
-// CreateAuthor نویسندهٔ جدیدی را در جدول authors درج می‌کند.
+// CreateAuthor نویسنده جدیدی را در دیتابیس ثبت می‌کند.
 func (r *AuthorRepository) CreateAuthor(author *model.Author) error {
-	const query = `INSERT INTO authors (name, biography, birth_date, created_at) VALUES (?, ?, ?, ?)`
-	_, err := r.DB.Exec(query, author.Name, author.Biography, author.BirthDate, time.Now())
-	return err // در صورت خطا به لایه بالاتر ارسال می‌شود
+	query := `INSERT INTO authors (name, biography, birth_date, created_at) VALUES (?, ?, ?, ?)`
+	res, err := r.DB.Exec(query, author.Name, author.Biography, author.BirthDate, author.CreatedAt)
+	if err != nil {
+		return err
+	}
+
+	id, err := res.LastInsertId()
+	if err != nil {
+		return err
+	}
+	author.ID = int(id) // 🆕 ست کردن ID دقیق برگشتی از دیتابیس
+	return nil
 }
 
-// GetAllAuthors تمام نویسنده‌ها را برمی‌گرداند.
+// GetAllAuthors لیست همه نویسنده‌ها را بازمی‌گرداند.
 func (r *AuthorRepository) GetAllAuthors() ([]model.Author, error) {
-	const query = `SELECT id, name, biography, birth_date, created_at FROM authors`
-
+	query := `SELECT id, name, biography, birth_date, created_at FROM authors`
 	rows, err := r.DB.Query(query)
 	if err != nil {
 		return nil, err
@@ -48,58 +54,54 @@ func (r *AuthorRepository) GetAllAuthors() ([]model.Author, error) {
 	return authors, nil
 }
 
-// GetAuthorByID نویسنده‌ای با شناسهٔ مشخص برمی‌گرداند.
-// اگر نویسنده‌ای پیدا نشود، (nil, nil) برگشت داده می‌شود.
+// GetAuthorByID یک نویسنده خاص را بر اساس ID بازمی‌گرداند.
 func (r *AuthorRepository) GetAuthorByID(id int) (*model.Author, error) {
-	const query = `SELECT id, name, biography, birth_date, created_at FROM authors WHERE id = ?`
-
+	query := `SELECT id, name, biography, birth_date, created_at FROM authors WHERE id = ?`
 	var a model.Author
 	err := r.DB.QueryRow(query, id).Scan(&a.ID, &a.Name, &a.Biography, &a.BirthDate, &a.CreatedAt)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, nil // نویسنده‌ای با این ID نیست
-		}
+	if err == sql.ErrNoRows {
+		return nil, nil
+	} else if err != nil {
 		return nil, err
 	}
 	return &a, nil
 }
 
-// UpdateAuthor اطلاعات نویسنده را بروزرسانی می‌کند.
-// اگر نویسنده وجود نداشته باشد، sql.ErrNoRows بازگردانده می‌شود تا هندلر پیام مناسب بدهد.
-func (r *AuthorRepository) UpdateAuthor(a *model.Author) error {
-	const query = `UPDATE authors SET name = ?, biography = ?, birth_date = ? WHERE id = ?`
-
+// UpdateAuthor اطلاعات نویسنده را بروزرسانی می‌کند و موفقیت عملیات را بازمی‌گرداند.
+func (r *AuthorRepository) UpdateAuthor(a *model.Author) (bool, error) {
+	query := `UPDATE authors SET name = ?, biography = ?, birth_date = ? WHERE id = ?`
 	res, err := r.DB.Exec(query, a.Name, a.Biography, a.BirthDate, a.ID)
 	if err != nil {
-		return err
+		return false, err
 	}
-
 	rows, err := res.RowsAffected()
 	if err != nil {
-		return err
+		return false, err
 	}
-	if rows == 0 {
-		return sql.ErrNoRows // هیچ رکوردی آپدیت نشد ➜ نویسنده‌ای با این ID وجود ندارد
-	}
-	return nil
+	return rows > 0, nil
 }
 
-// DeleteAuthor نویسنده‌ای را حذف می‌کند.
-// اگر ID موجود نباشد، sql.ErrNoRows بازمی‌گرداند.
-func (r *AuthorRepository) DeleteAuthor(id int) error {
-	const query = `DELETE FROM authors WHERE id = ?`
-
+// DeleteAuthor نویسنده‌ای را حذف می‌کند و موفقیت عملیات را بازمی‌گرداند.
+func (r *AuthorRepository) DeleteAuthor(id int) (bool, error) {
+	query := `DELETE FROM authors WHERE id = ?`
 	res, err := r.DB.Exec(query, id)
 	if err != nil {
-		return err
+		return false, err
 	}
-
 	rows, err := res.RowsAffected()
 	if err != nil {
-		return err
+		return false, err
 	}
-	if rows == 0 {
-		return sql.ErrNoRows // نویسنده‌ای با این ID پیدا نشد
+	return rows > 0, nil
+}
+
+// Exists بررسی می‌کند آیا نویسنده‌ای با نام و تاریخ تولد مشخص وجود دارد یا نه.
+func (r *AuthorRepository) Exists(name string, birthDate time.Time) (bool, error) {
+	query := `SELECT COUNT(*) FROM authors WHERE name = ? AND birth_date = ?`
+	var count int
+	err := r.DB.QueryRow(query, name, birthDate).Scan(&count)
+	if err != nil {
+		return false, err
 	}
-	return nil
+	return count > 0, nil
 }

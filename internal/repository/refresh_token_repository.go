@@ -56,7 +56,7 @@ func (r *RefreshTokenRepository) DeleteAll(userID uint) error {
 // بازگشت:
 // - bool: معتبر (true) یا نامعتبر (false)
 // - error: خطای احتمالی در زمان اجرا
-func (r *RefreshTokenRepository) Validate(token string, userID uint) (bool, error) {
+func (r *RefreshTokenRepository) Validate(token string, userID int) (bool, error) {
 	// کوئری SQL برای شمارش تعداد رکوردهای مطابق
 	query := `
 		SELECT COUNT(*) FROM refresh_tokens WHERE token = ? AND user_id = ?

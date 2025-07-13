@@ -1,10 +1,7 @@
 // internal/handler/author.go
-
 package handler
 
 import (
-	"database/sql"
-	"errors" // برای بررسی خطاهایی مثل sql.ErrNoRows
 	"net/http"
 	"strconv"
 	"time"
@@ -14,27 +11,34 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-// ساختار ورودی برای ایجاد یا ویرایش نویسنده
-// زمانی که کاربر یک نویسنده جدید ایجاد می‌کند یا اطلاعاتش را ویرایش می‌کند،
-// این ساختار داده از بدنهٔ درخواست گرفته می‌شود.
+// AuthorRequest ساختار ورودی برای ایجاد یا ویرایش نویسنده است
+// این داده‌ها از سمت کاربر دریافت می‌شود
+// و شامل نام، بیوگرافی و تاریخ تولد نویسنده است.
 type AuthorRequest struct {
-	Name      string `json:"name"`       // نام نویسنده
-	Biography string `json:"biography"`  // زندگی‌نامه نویسنده
-	BirthDate string `json:"birth_date"` // تاریخ تولد نویسنده (به صورت رشته)
+	Name      string `json:"name"`
+	Biography string `json:"biography"`
+	BirthDate string `json:"birth_date"`
 }
 
-// 🔹 ایجاد نویسنده جدید
+// CreateAuthor ایجاد نویسنده جدید
 func CreateAuthor(c echo.Context) error {
 	repo := c.Get("author_repo").(*repository.AuthorRepository)
 	req := new(AuthorRequest)
-
 	if err := c.Bind(req); err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid request"})
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": "درخواست نامعتبر است"})
 	}
 
 	birthDate, err := time.Parse("2006-01-02", req.BirthDate)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid birth_date format, use YYYY-MM-DD"})
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": "فرمت تاریخ تولد نادرست است، از YYYY-MM-DD استفاده کنید"})
+	}
+
+	exists, err := repo.Exists(req.Name, birthDate)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "خطا در بررسی نویسنده"})
+	}
+	if exists {
+		return c.JSON(http.StatusConflict, echo.Map{"error": "نویسنده قبلاً ثبت شده است"})
 	}
 
 	author := &model.Author{
@@ -45,60 +49,55 @@ func CreateAuthor(c echo.Context) error {
 	}
 
 	if err := repo.CreateAuthor(author); err != nil {
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "failed to create author"})
+		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "ثبت نویسنده با خطا مواجه شد"})
 	}
 
 	return c.JSON(http.StatusCreated, author)
 }
 
-// 🔹 دریافت لیست همه نویسنده‌ها
+// GetAllAuthors دریافت لیست همه نویسنده‌ها
 func GetAllAuthors(c echo.Context) error {
 	repo := c.Get("author_repo").(*repository.AuthorRepository)
-
 	authors, err := repo.GetAllAuthors()
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "failed to fetch authors"})
+		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "دریافت نویسنده‌ها با خطا مواجه شد"})
 	}
-
 	return c.JSON(http.StatusOK, authors)
 }
 
-// 🔹 دریافت نویسنده بر اساس شناسه (id)
+// GetAuthorByID دریافت اطلاعات نویسنده با شناسه مشخص
 func GetAuthorByID(c echo.Context) error {
 	repo := c.Get("author_repo").(*repository.AuthorRepository)
-
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid id"})
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": "شناسه نامعتبر است"})
 	}
-
 	author, err := repo.GetAuthorByID(id)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "failed to fetch author"})
+		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "خطا در دریافت نویسنده"})
 	}
 	if author == nil {
-		return c.JSON(http.StatusNotFound, echo.Map{"error": "author not found"})
+		return c.JSON(http.StatusNotFound, echo.Map{"error": "نویسنده یافت نشد"})
 	}
-
 	return c.JSON(http.StatusOK, author)
 }
 
-// 🔹 بروزرسانی اطلاعات نویسنده
+// UpdateAuthor بروزرسانی اطلاعات نویسنده
 func UpdateAuthor(c echo.Context) error {
 	repo := c.Get("author_repo").(*repository.AuthorRepository)
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid id"})
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": "شناسه نامعتبر است"})
 	}
 
 	req := new(AuthorRequest)
 	if err := c.Bind(req); err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid request"})
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": "درخواست نامعتبر است"})
 	}
 
 	birthDate, err := time.Parse("2006-01-02", req.BirthDate)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid birth_date format, use YYYY-MM-DD"})
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": "فرمت تاریخ تولد نادرست است"})
 	}
 
 	author := &model.Author{
@@ -108,31 +107,32 @@ func UpdateAuthor(c echo.Context) error {
 		BirthDate: birthDate,
 	}
 
-	if err := repo.UpdateAuthor(author); err != nil {
-		// بررسی اینکه آیا خطا به‌خاطر نبودن نویسنده است
-		if errors.Is(err, sql.ErrNoRows) {
-			return c.JSON(http.StatusNotFound, echo.Map{"error": "author not found"})
-		}
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "failed to update author"})
+	updated, err := repo.UpdateAuthor(author)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "خطا در بروزرسانی نویسنده"})
+	}
+	if !updated {
+		return c.JSON(http.StatusNotFound, echo.Map{"error": "نویسنده یافت نشد"})
 	}
 
-	return c.JSON(http.StatusOK, echo.Map{"message": "author updated"})
+	return c.JSON(http.StatusOK, echo.Map{"message": "نویسنده با موفقیت بروزرسانی شد"})
 }
 
-// 🔹 حذف نویسنده با شناسه خاص
+// DeleteAuthor حذف نویسنده بر اساس شناسه
 func DeleteAuthor(c echo.Context) error {
 	repo := c.Get("author_repo").(*repository.AuthorRepository)
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid id"})
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": "شناسه نامعتبر است"})
 	}
 
-	if err := repo.DeleteAuthor(id); err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return c.JSON(http.StatusNotFound, echo.Map{"error": "author not found"})
-		}
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "failed to delete author"})
+	deleted, err := repo.DeleteAuthor(id)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "خطا در حذف نویسنده"})
+	}
+	if !deleted {
+		return c.JSON(http.StatusNotFound, echo.Map{"error": "نویسنده یافت نشد"})
 	}
 
-	return c.JSON(http.StatusOK, echo.Map{"message": "author deleted"})
+	return c.JSON(http.StatusOK, echo.Map{"message": "نویسنده با موفقیت حذف شد"})
 }
