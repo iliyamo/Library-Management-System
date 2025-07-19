@@ -38,10 +38,15 @@ func RegisterRoutes(e *echo.Echo) {
 
 	// 📚 مسیرهای کتاب‌ها (محافظت‌شده)
 	books := v1.Group("/books")
-	books.Use(middleware.JWTAuth)            // احراز هویت الزامی است
-	books.POST("", handler.CreateBook)       // ایجاد کتاب جدید
-	books.GET("", handler.GetAllBooks)       // دریافت لیست همه کتاب‌ها
-	books.GET("/:id", handler.GetBookByID)   // دریافت اطلاعات یک کتاب خاص
-	books.PUT("/:id", handler.UpdateBook)    // بروزرسانی اطلاعات کتاب
-	books.DELETE("/:id", handler.DeleteBook) // حذف کتاب
+	books.Use(middleware.JWTAuth)           // احراز هویت الزامی است
+	books.POST("", handler.CreateBook)      // ایجاد کتاب جدید
+	books.GET("", handler.GetAllBooks)      // دریافت لیست همه کتاب‌ها
+	books.GET(":id", handler.GetBookByID)   // دریافت اطلاعات یک کتاب خاص
+	books.PUT(":id", handler.UpdateBook)    // بروزرسانی اطلاعات کتاب
+	books.DELETE(":id", handler.DeleteBook) // حذف کتاب
+
+	// 👥 مسیر جستجوی کاربران با پشتیبانی از full-text search و cursor-based pagination
+	users := v1.Group("/users")
+	users.Use(middleware.JWTAuth)      // فقط کاربران واردشده
+	users.GET("", handler.SearchUsers) // جستجوی کاربران
 }

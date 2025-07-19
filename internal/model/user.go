@@ -13,3 +13,10 @@ type User struct {
 	CreatedAt    time.Time `json:"created_at"` // زمان ایجاد حساب کاربری
 	UpdatedAt    time.Time `json:"updated_at"` // زمان آخرین بروزرسانی اطلاعات حساب کاربری
 }
+
+// UserSearchParams برای جستجوی کاربران با پشتیبانی از cursor-based pagination
+type UserSearchParams struct {
+	Query    string `query:"query"`     // متن جستجو روی full_name و email
+	CursorID int    `query:"cursor_id"` // آخرین شناسه‌ای که از سمت کلاینت گرفته شده
+	Limit    int    `query:"limit"`     // تعداد نتایج برگشتی در هر درخواست
+}
