@@ -11,7 +11,7 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-// BookRequest داده‎ای که از کلاینت می‌گیریم
+// BookRequest داده‌ای که از کلاینت می‌گیریم
 type BookRequest struct {
 	Title         string  `json:"title"`
 	ISBN          string  `json:"isbn"`
@@ -22,23 +22,18 @@ type BookRequest struct {
 	TotalCopies   int     `json:"total_copies"`
 }
 
-// CreateBook ➜ POST /books
+// CreateBook ➔ POST /books
 func CreateBook(c echo.Context) error {
 	repo := c.Get("book_repo").(*repository.BookRepository)
-
-	// تبدیل JSON ورودی
 	var req BookRequest
 	if err := c.Bind(&req); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "درخواست نامعتبر"})
 	}
-
-	// جلوگیری از ISBN تکراری
 	if ok, err := repo.ExistsByISBN(req.ISBN); err != nil {
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "خطا در بررسی ISBN"})
 	} else if ok {
 		return c.JSON(http.StatusConflict, echo.Map{"error": "این ISBN قبلاً ثبت شده"})
 	}
-
 	book := &model.Book{
 		Title:           req.Title,
 		ISBN:            req.ISBN,
@@ -47,31 +42,65 @@ func CreateBook(c echo.Context) error {
 		Description:     req.Description,
 		PublishedYear:   req.PublishedYear,
 		TotalCopies:     req.TotalCopies,
-		AvailableCopies: req.TotalCopies, // در ابتدا همه نسخه‌ها موجودند
+		AvailableCopies: req.TotalCopies,
 		CreatedAt:       time.Now(),
 	}
-
 	if err := repo.CreateBook(book); err != nil {
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "ثبت کتاب ناموفق"})
 	}
 	return c.JSON(http.StatusCreated, book)
 }
 
-// GetAllBooks ➜ GET /books
+// GetAllBooks ➔ GET /books
 func GetAllBooks(c echo.Context) error {
 	repo := c.Get("book_repo").(*repository.BookRepository)
-	books, err := repo.GetAllBooks()
-	if err != nil {
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "خطا در واکشی"})
+
+	// دریافت پارامترهای کوئری برای cursor-based pagination
+	query := c.QueryParam("query")
+	cursorStr := c.QueryParam("cursor_id")
+	limitStr := c.QueryParam("limit")
+
+	cursor := 0
+	if cursorStr != "" {
+		if v, err := strconv.Atoi(cursorStr); err == nil {
+			cursor = v
+		}
 	}
-	return c.JSON(http.StatusOK, books)
+
+	limit := 10
+	if limitStr != "" {
+		if v, err := strconv.Atoi(limitStr); err == nil && v > 0 && v <= 100 {
+			limit = v
+		}
+	}
+
+	params := &model.BookSearchParams{
+		Query:    query,
+		CursorID: cursor,
+		Limit:    limit,
+	}
+
+	books, _, err := repo.SearchBooks(params)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "خطا در جستجو"})
+	}
+
+	var nextCursor int
+	if len(books) > 0 {
+		nextCursor = books[len(books)-1].ID
+	}
+
+	return c.JSON(http.StatusOK, echo.Map{
+		"data":        books,
+		"next_cursor": nextCursor,
+		"limit":       limit,
+	})
 }
 
-// GetBookByID ➜ GET /books/:id
+// GetBookByID ➔ GET /books/:id
 func GetBookByID(c echo.Context) error {
 	repo := c.Get("book_repo").(*repository.BookRepository)
 	id, _ := strconv.Atoi(c.Param("id"))
-
 	book, err := repo.GetBookByID(id)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "خطا در واکشی"})
@@ -82,16 +111,14 @@ func GetBookByID(c echo.Context) error {
 	return c.JSON(http.StatusOK, book)
 }
 
-// UpdateBook ➜ PUT /books/:id
+// UpdateBook ➔ PUT /books/:id
 func UpdateBook(c echo.Context) error {
 	repo := c.Get("book_repo").(*repository.BookRepository)
 	id, _ := strconv.Atoi(c.Param("id"))
-
 	var req BookRequest
 	if err := c.Bind(&req); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "درخواست نامعتبر"})
 	}
-
 	book := &model.Book{
 		ID:              id,
 		ISBN:            req.ISBN,
@@ -101,9 +128,8 @@ func UpdateBook(c echo.Context) error {
 		Description:     req.Description,
 		PublishedYear:   req.PublishedYear,
 		TotalCopies:     req.TotalCopies,
-		AvailableCopies: req.TotalCopies, // می‌توانید منطق پیچیده‌تری بگذارید
+		AvailableCopies: req.TotalCopies,
 	}
-
 	ok, err := repo.UpdateBook(book)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "خطا در بروزرسانی"})
@@ -114,11 +140,10 @@ func UpdateBook(c echo.Context) error {
 	return c.JSON(http.StatusOK, echo.Map{"message": "کتاب بروزرسانی شد"})
 }
 
-// DeleteBook ➜ DELETE /books/:id
+// DeleteBook ➔ DELETE /books/:id
 func DeleteBook(c echo.Context) error {
 	repo := c.Get("book_repo").(*repository.BookRepository)
 	id, _ := strconv.Atoi(c.Param("id"))
-
 	ok, err := repo.DeleteBook(id)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "خطا در حذف"})

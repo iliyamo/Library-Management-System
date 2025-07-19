@@ -16,3 +16,10 @@ type Book struct {
 	AvailableCopies int       `json:"available_copies"` // نسخه‌های در دسترس
 	CreatedAt       time.Time `json:"created_at"`       // زمان ایجاد
 }
+
+// BookSearchParams ➜ پارامترهای لازم برای جستجو با cursor-based pagination
+type BookSearchParams struct {
+	Query    string `query:"query"`     // عبارت جستجو (برای full-text search)
+	CursorID int    `query:"cursor_id"` // آخرین ID مشاهده‌شده
+	Limit    int    `query:"limit"`     // تعداد نتایج در هر صفحه (مثلاً 10)
+}
