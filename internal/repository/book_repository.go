@@ -107,3 +107,68 @@ func (r *BookRepository) DeleteBook(id int) (bool, error) {
 	aff, _ := res.RowsAffected()
 	return aff > 0, nil
 }
+
+// SearchBooks ➜ پشتیبانی از full-text و گرفتن همه کتاب‌ها در صورت نبود query
+func (r *BookRepository) SearchBooks(params *model.BookSearchParams) ([]model.Book, int, error) {
+	var (
+		rows       *sql.Rows
+		query      string
+		args       []interface{}
+		totalCount int
+		err        error
+	)
+
+	if params.Query == "" {
+		// حالت بدون جستجو: فقط بر اساس cursor id
+		query = `
+			SELECT id, title, isbn, author_id, category_id, description,
+			       published_year, total_copies, available_copies, created_at
+			FROM books
+			WHERE id > ?
+			ORDER BY id ASC
+			LIMIT ?`
+		args = []interface{}{params.CursorID, params.Limit}
+	} else {
+		// حالت جستجوی متنی
+		query = `
+			SELECT id, title, isbn, author_id, category_id, description,
+			       published_year, total_copies, available_copies, created_at
+			FROM books
+			WHERE MATCH(title, description) AGAINST (? IN BOOLEAN MODE)
+			AND id > ?
+			ORDER BY id ASC
+			LIMIT ?`
+		args = []interface{}{params.Query, params.CursorID, params.Limit}
+	}
+
+	rows, err = r.DB.Query(query, args...)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	var books []model.Book
+	for rows.Next() {
+		var b model.Book
+		if err := rows.Scan(
+			&b.ID, &b.Title, &b.ISBN, &b.AuthorID, &b.CategoryID,
+			&b.Description, &b.PublishedYear, &b.TotalCopies,
+			&b.AvailableCopies, &b.CreatedAt,
+		); err != nil {
+			return nil, 0, err
+		}
+		books = append(books, b)
+	}
+
+	if params.Query == "" {
+		// کل شمارش فقط وقتی query خالیه
+		err = r.DB.QueryRow(`SELECT COUNT(*) FROM books`).Scan(&totalCount)
+	} else {
+		err = r.DB.QueryRow(`SELECT COUNT(*) FROM books WHERE MATCH(title, description) AGAINST (? IN BOOLEAN MODE)`, params.Query).Scan(&totalCount)
+	}
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return books, totalCount, nil
+}

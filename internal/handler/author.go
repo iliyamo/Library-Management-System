@@ -58,6 +58,52 @@ func CreateAuthor(c echo.Context) error {
 // GetAllAuthors دریافت لیست همه نویسنده‌ها
 func GetAllAuthors(c echo.Context) error {
 	repo := c.Get("author_repo").(*repository.AuthorRepository)
+
+	// اگر query داده شده بود، جستجوی full-text انجام شود
+	q := c.QueryParam("query")
+	cursorStr := c.QueryParam("cursor_id")
+	limitStr := c.QueryParam("limit")
+
+	if q != "" {
+		cursor := 0
+		if cursorStr != "" {
+			if v, err := strconv.Atoi(cursorStr); err == nil {
+				cursor = v
+			}
+		}
+
+		limit := 10
+		if limitStr != "" {
+			if v, err := strconv.Atoi(limitStr); err == nil && v > 0 && v <= 100 {
+				limit = v
+			}
+		}
+
+		params := &model.AuthorSearchParams{
+			Query:    q,
+			CursorID: cursor,
+			Limit:    limit,
+		}
+
+		authors, total, err := repo.SearchAuthors(params)
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, echo.Map{"error": "خطا در جستجو"})
+		}
+
+		nextCursor := 0
+		if len(authors) > 0 {
+			nextCursor = authors[len(authors)-1].ID
+		}
+
+		return c.JSON(http.StatusOK, echo.Map{
+			"data":        authors,
+			"next_cursor": nextCursor,
+			"limit":       limit,
+			"total":       total,
+		})
+	}
+
+	// در غیر اینصورت همه نویسنده‌ها را برگردان
 	authors, err := repo.GetAllAuthors()
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "دریافت نویسنده‌ها با خطا مواجه شد"})
