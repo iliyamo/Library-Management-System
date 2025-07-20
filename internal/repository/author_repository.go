@@ -3,6 +3,7 @@ package repository
 
 import (
 	"database/sql"
+	"log"
 	"time"
 
 	"github.com/iliyamo/go-learning/internal/model"
@@ -30,7 +31,7 @@ func (r *AuthorRepository) CreateAuthor(author *model.Author) error {
 	if err != nil {
 		return err
 	}
-	author.ID = int(id) // 🆕 ست کردن ID دقیق برگشتی از دیتابیس
+	author.ID = int(id)
 	return nil
 }
 
@@ -104,4 +105,42 @@ func (r *AuthorRepository) Exists(name string, birthDate time.Time) (bool, error
 		return false, err
 	}
 	return count > 0, nil
+}
+
+// SearchAuthors جستجوی full-text با پشتیبانی از cursor-based pagination
+func (r *AuthorRepository) SearchAuthors(params *model.AuthorSearchParams) ([]model.Author, int, error) {
+	log.Printf("[REPO] SearchAuthors: query='%s', cursor=%d, limit=%d", params.Query, params.CursorID, params.Limit)
+
+	query := `
+		SELECT id, name, biography, birth_date, created_at
+		FROM authors
+		WHERE MATCH(name, biography) AGAINST (? IN BOOLEAN MODE) AND id > ?
+		ORDER BY id ASC
+		LIMIT ?`
+
+	rows, err := r.DB.Query(query, params.Query, params.CursorID, params.Limit)
+	if err != nil {
+		log.Printf("[REPO] SearchAuthors query error: %v", err)
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	var authors []model.Author
+	for rows.Next() {
+		var a model.Author
+		if err := rows.Scan(&a.ID, &a.Name, &a.Biography, &a.BirthDate, &a.CreatedAt); err != nil {
+			return nil, 0, err
+		}
+		authors = append(authors, a)
+	}
+
+	countQuery := `SELECT COUNT(*) FROM authors WHERE MATCH(name, biography) AGAINST (? IN BOOLEAN MODE)`
+	var total int
+	err = r.DB.QueryRow(countQuery, params.Query).Scan(&total)
+	if err != nil {
+		log.Printf("[REPO] Count query error: %v", err)
+		return nil, 0, err
+	}
+
+	return authors, total, nil
 }

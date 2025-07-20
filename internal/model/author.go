@@ -11,3 +11,10 @@ type Author struct {
 	CreatedAt time.Time `json:"created_at"` // زمان ایجاد رکورد
 	UpdatedAt time.Time `json:"updated_at"` // زمان آخرین به‌روزرسانی
 }
+
+// AuthorSearchParams پارامترهای جستجو برای نویسنده
+type AuthorSearchParams struct {
+	Query    string `query:"query"`     // رشته جستجو
+	CursorID int    `query:"cursor_id"` // برای cursor-based pagination
+	Limit    int    `query:"limit"`     // محدودیت تعداد نتایج
+}
