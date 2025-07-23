@@ -2,12 +2,15 @@
 package handler
 
 import (
+	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 	"time"
 
 	"github.com/iliyamo/go-learning/internal/model"
 	"github.com/iliyamo/go-learning/internal/repository"
+	"github.com/iliyamo/go-learning/internal/utils"
 	"github.com/labstack/echo/v4"
 )
 
@@ -55,7 +58,6 @@ func CreateBook(c echo.Context) error {
 func GetAllBooks(c echo.Context) error {
 	repo := c.Get("book_repo").(*repository.BookRepository)
 
-	// دریافت پارامترهای کوئری برای cursor-based pagination
 	query := c.QueryParam("query")
 	cursorStr := c.QueryParam("cursor_id")
 	limitStr := c.QueryParam("limit")
@@ -74,6 +76,15 @@ func GetAllBooks(c echo.Context) error {
 		}
 	}
 
+	// ✅ کش‌کردن نتایج بر اساس پارامترهای جستجو
+	cacheKey := fmt.Sprintf("books:query=%s:cursor=%d:limit=%d", query, cursor, limit)
+	if cached, err := utils.GetCache(cacheKey); err == nil {
+		var response map[string]interface{}
+		if err := json.Unmarshal([]byte(cached), &response); err == nil {
+			return c.JSON(http.StatusOK, response)
+		}
+	}
+
 	params := &model.BookSearchParams{
 		Query:    query,
 		CursorID: cursor,
@@ -85,16 +96,23 @@ func GetAllBooks(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "خطا در جستجو"})
 	}
 
-	var nextCursor int
+	nextCursor := 0
 	if len(books) > 0 {
 		nextCursor = books[len(books)-1].ID
 	}
 
-	return c.JSON(http.StatusOK, echo.Map{
+	response := echo.Map{
 		"data":        books,
 		"next_cursor": nextCursor,
 		"limit":       limit,
-	})
+	}
+
+	// ✅ ذخیره در Redis برای ۳۰ ثانیه
+	if data, err := json.Marshal(response); err == nil {
+		_ = utils.SetCache(cacheKey, string(data), 30*time.Second)
+	}
+
+	return c.JSON(http.StatusOK, response)
 }
 
 // GetBookByID ➔ GET /books/:id

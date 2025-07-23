@@ -13,6 +13,7 @@ import (
 	"github.com/iliyamo/go-learning/internal/database"
 	"github.com/iliyamo/go-learning/internal/repository"
 	"github.com/iliyamo/go-learning/internal/router"
+	"github.com/iliyamo/go-learning/internal/utils" // ✅ اضافه‌شده برای Redis
 )
 
 // App ساختار کلی برنامه شامل وابستگی‌ها
@@ -21,7 +22,7 @@ type App struct {
 	UserRepo    *repository.UserRepository
 	RefreshRepo *repository.RefreshTokenRepository
 	AuthorRepo  *repository.AuthorRepository
-	BookRepo    *repository.BookRepository // ✅ اضافه‌شده برای مدیریت کتاب‌ها
+	BookRepo    *repository.BookRepository // ✅ مدیریت کتاب‌ها
 }
 
 // NewApp مقداردهی اولیهٔ برنامه
@@ -45,10 +46,13 @@ func NewApp() (*App, error) {
 		return nil, errors.New("database connection failed")
 	}
 
+	// ✅ اتصال به Redis
+	utils.InitRedis()
+
 	userRepo := repository.NewUserRepository(db)
 	refreshRepo := repository.NewRefreshTokenRepository(db)
 	authorRepo := repository.NewAuthorRepository(db)
-	bookRepo := repository.NewBookRepository(db) // ✅ اضافه‌شده
+	bookRepo := repository.NewBookRepository(db)
 
 	e := echo.New()
 	e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
@@ -56,7 +60,7 @@ func NewApp() (*App, error) {
 			c.Set("user_repo", userRepo)
 			c.Set("refresh_token_repo", refreshRepo)
 			c.Set("author_repo", authorRepo)
-			c.Set("book_repo", bookRepo) // ✅ اضافه‌شده
+			c.Set("book_repo", bookRepo)
 			return next(c)
 		}
 	})
@@ -68,7 +72,7 @@ func NewApp() (*App, error) {
 		UserRepo:    userRepo,
 		RefreshRepo: refreshRepo,
 		AuthorRepo:  authorRepo,
-		BookRepo:    bookRepo, // ✅ اضافه‌شده
+		BookRepo:    bookRepo,
 	}, nil
 }
 
