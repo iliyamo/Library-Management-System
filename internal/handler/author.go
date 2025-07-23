@@ -2,12 +2,15 @@
 package handler
 
 import (
+	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 	"time"
 
 	"github.com/iliyamo/go-learning/internal/model"
 	"github.com/iliyamo/go-learning/internal/repository"
+	"github.com/iliyamo/go-learning/internal/utils"
 	"github.com/labstack/echo/v4"
 )
 
@@ -59,7 +62,6 @@ func CreateAuthor(c echo.Context) error {
 func GetAllAuthors(c echo.Context) error {
 	repo := c.Get("author_repo").(*repository.AuthorRepository)
 
-	// اگر query داده شده بود، جستجوی full-text انجام شود
 	q := c.QueryParam("query")
 	cursorStr := c.QueryParam("cursor_id")
 	limitStr := c.QueryParam("limit")
@@ -79,6 +81,15 @@ func GetAllAuthors(c echo.Context) error {
 			}
 		}
 
+		// ✅ کش بر اساس query + cursor + limit
+		cacheKey := fmt.Sprintf("authors:query=%s:cursor=%d:limit=%d", q, cursor, limit)
+		if cached, err := utils.GetCache(cacheKey); err == nil {
+			var response map[string]interface{}
+			if err := json.Unmarshal([]byte(cached), &response); err == nil {
+				return c.JSON(http.StatusOK, response)
+			}
+		}
+
 		params := &model.AuthorSearchParams{
 			Query:    q,
 			CursorID: cursor,
@@ -95,15 +106,18 @@ func GetAllAuthors(c echo.Context) error {
 			nextCursor = authors[len(authors)-1].ID
 		}
 
-		return c.JSON(http.StatusOK, echo.Map{
+		response := echo.Map{
 			"data":        authors,
 			"next_cursor": nextCursor,
 			"limit":       limit,
 			"total":       total,
-		})
+		}
+		if data, err := json.Marshal(response); err == nil {
+			_ = utils.SetCache(cacheKey, string(data), 30*time.Second)
+		}
+		return c.JSON(http.StatusOK, response)
 	}
 
-	// در غیر اینصورت همه نویسنده‌ها را برگردان
 	authors, err := repo.GetAllAuthors()
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "دریافت نویسنده‌ها با خطا مواجه شد"})
