@@ -137,6 +137,20 @@ func UpdateBook(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "درخواست نامعتبر"})
 	}
+
+	currentBook, err := repo.GetBookByID(id)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "خطا در واکشی کتاب"})
+	}
+	if currentBook == nil {
+		return c.JSON(http.StatusNotFound, echo.Map{"error": "کتاب پیدا نشد"})
+	}
+
+	availableCopies := currentBook.AvailableCopies + (req.TotalCopies - currentBook.TotalCopies)
+	if availableCopies < 0 {
+		availableCopies = 0
+	}
+
 	book := &model.Book{
 		ID:              id,
 		ISBN:            req.ISBN,
@@ -146,8 +160,9 @@ func UpdateBook(c echo.Context) error {
 		Description:     req.Description,
 		PublishedYear:   req.PublishedYear,
 		TotalCopies:     req.TotalCopies,
-		AvailableCopies: req.TotalCopies,
+		AvailableCopies: availableCopies,
 	}
+
 	ok, err := repo.UpdateBook(book)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "خطا در بروزرسانی"})
@@ -155,6 +170,15 @@ func UpdateBook(c echo.Context) error {
 	if !ok {
 		return c.JSON(http.StatusNotFound, echo.Map{"error": "کتاب پیدا نشد"})
 	}
+
+	cacheKey := fmt.Sprintf("books:id=%d", id)
+	if data, err := json.Marshal(book); err == nil {
+		if err := utils.SetCache(cacheKey, string(data), 30*time.Second); err != nil {
+			// لاگ خطا ولی درخواست موفقیت‌آمیز است
+			fmt.Printf("خطا در ذخیره کش کتاب: %v\n", err)
+		}
+	}
+
 	return c.JSON(http.StatusOK, echo.Map{"message": "کتاب بروزرسانی شد"})
 }
 
