@@ -87,10 +87,10 @@ func (r *BookRepository) UpdateBook(b *model.Book) (bool, error) {
 	res, err := r.DB.Exec(`
 		UPDATE books
 		SET title = ?, isbn = ?, author_id = ?, category_id = ?, description = ?,
-		    published_year = ?, total_copies = ?, available_copies = ?
+		    published_year = ?, total_copies = ?, available_copies = ?, updated_at = ?
 		WHERE id = ?`,
 		b.Title, b.ISBN, b.AuthorID, b.CategoryID, b.Description,
-		b.PublishedYear, b.TotalCopies, b.AvailableCopies, b.ID)
+		b.PublishedYear, b.TotalCopies, b.AvailableCopies, nil, b.ID)
 	if err != nil {
 		return false, err
 	}

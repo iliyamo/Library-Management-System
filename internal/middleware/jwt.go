@@ -14,7 +14,7 @@ import (
 // 1. هدر Authorization را چک می‌کند
 // 2. اگر وجود داشت و با "Bearer " شروع می‌شد، توکن را جدا می‌کند
 // 3. توکن را با تابع ValidateToken اعتبارسنجی می‌کند
-// 4. Claims (ادعاها) و userID را در context ذخیره می‌کند تا handler بتواند استفاده کند
+// 4. Claims (ادعاها) و user_id را در context ذخیره می‌کند تا handler بتواند استفاده کند
 func JWTAuth(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		// 1. خواندن هدر Authorization از درخواست
@@ -27,23 +27,19 @@ func JWTAuth(next echo.HandlerFunc) echo.HandlerFunc {
 		}
 
 		// 2. جدا کردن عبارت "Bearer " از ابتدای هدر
-		// TrimSpace برای حذف فاصله‌های اضافی استفاده می‌شود
-		tokenString := strings.TrimSpace(strings.TrimPrefix(authHeader, "Bearer"))
+		tokenString := strings.TrimSpace(strings.TrimPrefix(authHeader, "Bearer "))
 
 		// 3. اعتبارسنجی توکن و بازگشت claims سفارشی
 		claims, err := utils.ValidateToken(tokenString)
 		if err != nil {
-			// اگر اعتبارسنجی شکست خورد، دسترسی رد می‌شود
 			return c.JSON(http.StatusUnauthorized, map[string]string{
 				"error": "invalid or expired token",
 			})
 		}
 
-		// 4. ذخیرهٔ claims و userID در context برای استفادهٔ بعدی
-		// کلید "claims" شامل کل داده‌های توکن است
+		// 4. ذخیرهٔ claims و user_id در context برای استفادهٔ بعدی
 		c.Set("claims", claims)
-		// کلید "userID" فقط شناسه کاربر را نگه می‌دارد (برای راحتی دسترسی)
-		c.Set("userID", claims.UserID)
+		c.Set("user_id", claims.UserID) // ✅ کلید هماهنگ با middleware های دیگر
 
 		// 5. اگر همه چیز اوکی باشد، به handler بعدی می‌رود
 		return next(c)
