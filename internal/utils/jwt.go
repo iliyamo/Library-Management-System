@@ -2,7 +2,8 @@ package utils
 
 import (
 	"errors" // برای نمایش خطا در اعتبارسنجی توکن
-	"time"   // برای زمان‌بندی انقضای توکن
+	"fmt"
+	"time" // برای زمان‌بندی انقضای توکن
 
 	"github.com/golang-jwt/jwt/v5" // پکیج JWT برای ساخت و اعتبارسنجی توکن
 )
@@ -26,19 +27,16 @@ var jwtSecretKey = []byte("your_secret_key")
 // GenerateAccessToken یک توکن کوتاه‌مدت می‌سازد که معمولاً ۱۵ دقیقه اعتبار دارد.
 // این توکن برای دسترسی به مسیرهای محافظت‌شده استفاده می‌شود.
 func GenerateAccessToken(userID uint, email string, roleID uint) (string, error) {
-	// تنظیم ادعاها (Claims) در توکن
 	claims := JWTClaims{
 		UserID: userID,
 		Email:  email,
 		RoleID: roleID,
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(15 * time.Minute)), // انقضا پس از 15 دقیقه
-			IssuedAt:  jwt.NewNumericDate(time.Now()),                       // زمان صدور توکن
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(15 * time.Minute)),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
 		},
 	}
-	// ساخت توکن با الگوریتم HS256 و ادعاهای تنظیم‌شده
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	// امضای توکن با کلید مخفی
 	return token.SignedString(jwtSecretKey)
 }
 
@@ -50,8 +48,8 @@ func GenerateRefreshToken(userID uint, email string, roleID uint) (string, error
 		Email:  email,
 		RoleID: roleID,
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(7 * 24 * time.Hour)), // انقضا پس از 7 روز
-			IssuedAt:  jwt.NewNumericDate(time.Now()),                         // زمان صدور توکن
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(7 * 24 * time.Hour)),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
 		},
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
@@ -63,20 +61,37 @@ func GenerateRefreshToken(userID uint, email string, roleID uint) (string, error
 // 2. توکن منقضی نشده باشد
 // سپس ادعاها (Claims) را برمی‌گرداند.
 func ValidateToken(tokenStr string) (*JWTClaims, error) {
-	// پارس توکن با ساختار JWTClaims
 	token, err := jwt.ParseWithClaims(tokenStr, &JWTClaims{}, func(token *jwt.Token) (interface{}, error) {
-		return jwtSecretKey, nil // بازگرداندن کلید برای بررسی امضا
+		return jwtSecretKey, nil
 	})
 	if err != nil {
-		// در صورت خطا در پارس یا امضا
 		return nil, err
 	}
 
-	// تبدیل claims به نوع سفارشی JWTClaims
 	claims, ok := token.Claims.(*JWTClaims)
-	// بررسی صحت و معتبر بودن توکن
 	if !ok || !token.Valid {
 		return nil, errors.New("invalid or expired token")
 	}
 	return claims, nil
+}
+
+// ExtractUserIDFromToken استخراج user_id از توکن JWT به عنوان رشته برای استفاده در middleware
+func ExtractUserIDFromToken(tokenStr string) (string, error) {
+	token, err := jwt.ParseWithClaims(tokenStr, &JWTClaims{}, func(token *jwt.Token) (interface{}, error) {
+		return jwtSecretKey, nil
+	})
+	if err != nil {
+		return "", err
+	}
+
+	claims, ok := token.Claims.(*JWTClaims)
+	if !ok || !token.Valid {
+		return "", errors.New("invalid or expired token")
+	}
+
+	if claims.UserID == 0 {
+		return "", errors.New("شناسه کاربر یافت نشد")
+	}
+
+	return fmt.Sprintf("%d", claims.UserID), nil
 }
