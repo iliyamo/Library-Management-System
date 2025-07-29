@@ -1,0 +1,170 @@
+graph TB
+    %% بازیگران
+    User[کاربر]
+    Admin[مدیر]
+    System[سیستم]
+
+    %% عملیات کاربر
+    RequestLoan[درخواست امانت]
+    ViewLoans[مشاهده وام ها]
+    ReturnBook[برگرداندن کتاب]
+
+    %% عملیات مدیر
+    ApproveLoan[تایید وام]
+    RejectLoan[رد وام]
+    ManageOverdue[مدیریت دیرکرد]
+
+    %% عملیات سیستم
+    CheckOverdue[بررسی دیرکرد]
+    SendNotif[ارسال اعلان]
+    LogActivity[ثبت گزارش]
+
+    %% سرویس ها
+    LoanService[سرویس وام]
+    BookService[سرویس کتاب]
+    UserService[سرویس کاربر]
+    NotificationService[سرویس اعلان]
+
+    %% زیرساخت
+    API[درگاه API]
+    MessageQueue[صف پیام]
+    RateLimit[محدود کننده]
+    Database[(پایگاه داده)]
+    Cache[(حافظه موقت)]
+    Scheduler[زمان بند]
+
+    %% ارتباط بازیگران با عملیات
+    User --> RequestLoan
+    User --> ViewLoans
+    User --> ReturnBook
+
+    Admin --> ApproveLoan
+    Admin --> RejectLoan
+    Admin --> ManageOverdue
+
+    System --> CheckOverdue
+    System --> SendNotif
+    System --> LogActivity
+
+    %% ارتباط عملیات با API
+    RequestLoan --> API
+    ViewLoans --> API
+    ReturnBook --> API
+    ApproveLoan --> API
+    RejectLoan --> API
+    ManageOverdue --> API
+
+    %% API به سرویس ها
+    API --> RateLimit
+    RateLimit --> LoanService
+    
+    %% ارتباط سرویس ها
+    LoanService --> BookService
+    LoanService --> UserService
+    LoanService --> MessageQueue
+
+    %% سرویس ها به پایگاه داده
+    LoanService --> Database
+    BookService --> Database
+    UserService --> Database
+    NotificationService --> Database
+
+    %% کش
+    BookService --> Cache
+    UserService --> Cache
+    RateLimit --> Cache
+
+    %% صف پیام
+    MessageQueue --> NotificationService
+    MessageQueue --> Scheduler
+
+    %% عملیات سیستم
+    CheckOverdue --> Scheduler
+    SendNotif --> NotificationService
+    LogActivity --> Database
+
+    %% زمان بند
+    Scheduler --> LoanService
+
+    %% جریان درخواست امانت
+    subgraph "جریان درخواست امانت"
+        Step1[کاربر درخواست می دهد]
+        Step2[سیستم موجودی چک می کند]
+        Step3[درخواست ثبت می شود]
+        Step4[پیام به مدیر ارسال می شود]
+        Step5[مدیر تصمیم می گیرد]
+        Step6[اعلان به کاربر ارسال می شود]
+        
+        Step1 --> Step2
+        Step2 --> Step3
+        Step3 --> Step4
+        Step4 --> Step5
+        Step5 --> Step6
+    end
+
+    %% وضعیت های وام
+    subgraph "وضعیت های وام"
+        Pending[در انتظار]
+        Approved[تایید شده]
+        Rejected[رد شده]
+        Returned[برگردانده شده]
+        Overdue[دیرکرده]
+        
+        Pending --> Approved
+        Pending --> Rejected
+        Approved --> Returned
+        Approved --> Overdue
+        Overdue --> Returned
+    end
+
+    %% جداول پایگاه داده
+    subgraph "جداول اصلی"
+        UsersTable[جدول کاربران]
+        BooksTable[جدول کتاب ها]
+        LoansTable[جدول وام ها]
+        NotifTable[جدول اعلان ها]
+        
+        UsersTable -.-> LoansTable
+        BooksTable -.-> LoansTable
+        UsersTable -.-> NotifTable
+    end
+
+    %% API های اصلی
+    subgraph "API های کاربر"
+        PostLoan[POST /loans - درخواست جدید]
+        GetMyLoans[GET /my-loans - وام های من]
+        PutReturn[PUT /loans/return - برگرداندن]
+    end
+
+    subgraph "API های مدیر"
+        GetAllLoans[GET /admin/loans - همه وام ها]
+        PutApprove[PUT /admin/approve - تایید]
+        PutReject[PUT /admin/reject - رد]
+    end
+
+    %% پیام های async
+    subgraph "پیام های سیستم"
+        LoanRequested[وام درخواست شد]
+        LoanApproved[وام تایید شد]
+        LoanRejected[وام رد شد]
+        BookReturned[کتاب برگشت]
+        LoanOverdue[وام دیرکرد]
+    end
+
+    %% رنگ بندی زیبا
+    classDef userStyle fill:#e3f2fd,stroke:#1976d2,stroke-width:3px,color:#000
+    classDef adminStyle fill:#f3e5f5,stroke:#7b1fa2,stroke-width:3px,color:#000
+    classDef systemStyle fill:#e8f5e8,stroke:#388e3c,stroke-width:3px,color:#000
+    classDef serviceStyle fill:#fff3e0,stroke:#f57c00,stroke-width:3px,color:#000
+    classDef dataStyle fill:#fce4ec,stroke:#c2185b,stroke-width:3px,color:#000
+    classDef flowStyle fill:#e0f2f1,stroke:#00695c,stroke-width:2px,color:#000
+    classDef apiStyle fill:#f1f8e9,stroke:#558b2f,stroke-width:2px,color:#000
+
+    %% اعمال رنگ ها
+    class User,RequestLoan,ViewLoans,ReturnBook userStyle
+    class Admin,ApproveLoan,RejectLoan,ManageOverdue adminStyle
+    class System,CheckOverdue,SendNotif,LogActivity systemStyle
+    class LoanService,BookService,UserService,NotificationService,API,MessageQueue,RateLimit,Scheduler serviceStyle
+    class Database,Cache,UsersTable,BooksTable,LoansTable,NotifTable dataStyle
+    class Step1,Step2,Step3,Step4,Step5,Step6,Pending,Approved,Rejected,Returned,Overdue,LoanRequested,LoanApproved,LoanRejected,BookReturned,LoanOverdue flowStyle
+    class PostLoan,GetMyLoans,PutReturn,GetAllLoans,PutApprove,PutReject apiStyle

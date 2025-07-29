@@ -1,0 +1,64 @@
+flowchart TD
+    %% ثبت‌نام کاربر
+    A[کاربر درخواست ثبت‌نام] --> B[POST /api/v1/auth/register]
+    B --> C{بررسی اعتبار داده‌ها}
+    C -->|نامعتبر| D[خطای 400 - درخواست نامعتبر]
+    C -->|معتبر| E[هش کردن رمز عبور با bcrypt]
+    E --> F[ایجاد User Object]
+    F --> G[ذخیره در دیتابیس]
+    G -->|خطا| H[خطای 500 - ناموفق در ایجاد]
+    G -->|موفق| I[پاسخ 201 - ثبت‌نام موفق]
+
+    %% ورود کاربر
+    J[کاربر درخواست ورود] --> K[POST /api/v1/auth/login]
+    K --> L{بررسی اعتبار داده‌ها}
+    L -->|نامعتبر| M[خطای 400 - درخواست نامعتبر]
+    L -->|معتبر| N[جستجوی کاربر با ایمیل]
+    N -->|یافت نشد| O[خطای 401 - اطلاعات نامعتبر]
+    N -->|یافت شد| P[مقایسه رمز با bcrypt]
+    P -->|نادرست| O
+    P -->|درست| Q[تولید Access Token - 15 دقیقه]
+    Q --> R[تولید Refresh Token - 7 روز]
+    R --> S[ذخیره Refresh Token در DB]
+    S --> T[بازگشت هر دو توکن]
+
+    %% تجدید توکن
+    U[درخواست تجدید توکن] --> V[POST /api/v1/auth/refresh]
+    V --> W{بررسی Refresh Token}
+    W -->|نامعتبر یا خالی| X[خطای 400 - درخواست نامعتبر]
+    W -->|معتبر| Y[اعتبارسنجی امضای JWT]
+    Y -->|نامعتبر| Z[خطای 401 - توکن نامعتبر]
+    Y -->|معتبر| AA[بررسی وجود توکن در DB]
+    AA -->|موجود نیست| AB[خطای 401 - توکن ابطال شده]
+    AA -->|موجود| AC[تولید Access Token جدید]
+    AC --> AD[بازگشت Access Token تازه]
+
+    %% دریافت پروفایل
+    AE[درخواست پروفایل] --> AF[GET /api/v1/auth/profile]
+    AF --> AG[بررسی JWT Middleware]
+    AG -->|بدون توکن| AH[خطای 401 - فقدان توکن]
+    AG -->|توکن نامعتبر| AI[خطای 401 - توکن نامعتبر]
+    AG -->|توکن معتبر| AJ[استخراج UserID از Claims]
+    AJ --> AK[جستجوی کاربر در DB]
+    AK -->|یافت نشد| AL[خطای 404 - کاربر یافت نشد]
+    AK -->|یافت شد| AM[بازگشت اطلاعات کاربر]
+
+    %% خروج از سیستم
+    AN[درخواست خروج] --> AO[POST /api/v1/auth/logout]
+    AO --> AP[بررسی JWT Middleware]
+    AP -->|بدون توکن| AQ[خطای 401 - فقدان توکن]
+    AP -->|توکن نامعتبر| AR[خطای 401 - توکن نامعتبر]
+    AP -->|توکن معتبر| AS[استخراج UserID از Claims]
+    AS --> AT[حذف همه Refresh Token های کاربر]
+    AT --> AU[پاسخ 200 - خروج موفق]
+
+    %% استایل‌ها
+    classDef successNode fill:#d4edda,stroke:#155724,color:#155724
+    classDef errorNode fill:#f8d7da,stroke:#721c24,color:#721c24
+    classDef processNode fill:#cce5ff,stroke:#004085,color:#004085
+    classDef authNode fill:#fff3cd,stroke:#856404,color:#856404
+
+    class I,T,AD,AM,AU successNode
+    class D,H,M,O,X,Z,AB,AH,AI,AL,AQ,AR errorNode
+    class E,F,G,Q,R,S,Y,AA,AC,AJ,AK,AS,AT processNode
+    class AG,AP authNode

@@ -1,0 +1,94 @@
+flowchart TD
+    %% ایجاد کتاب
+    A[کاربر درخواست ایجاد کتاب] --> B[POST /api/v1/books]
+    B --> C[بررسی JWT Middleware]
+    C -->|بدون توکن| D[خطای 401 - فقدان توکن]
+    C -->|توکن نامعتبر| E[خطای 401 - توکن نامعتبر]
+    C -->|توکن معتبر| F[بررسی Rate Limit]
+    F -->|تعداد درخواست زیاد| G[خطای 429 - درخواست بیش از حد]
+    F -->|مجاز| H{بررسی اعتبار داده‌ها}
+    H -->|نامعتبر| I[خطای 400 - درخواست نامعتبر]
+    H -->|معتبر| J[بررسی تکراری نبودن ISBN]
+    J -->|تکراری| K[خطای 409 - ISBN قبلاً ثبت شده]
+    J -->|یکتا| L[ایجاد مدل Book]
+    L --> M[تنظیم available_copies = total_copies]
+    M --> N[ذخیره در دیتابیس]
+    N -->|خطا| O[خطای 500 - ثبت کتاب ناموفق]
+    N -->|موفق| P[پاسخ 201 - کتاب ایجاد شد]
+
+    %% دریافت همه کتاب‌ها
+    Q[کاربر درخواست لیست کتاب‌ها] --> R[GET /api/v1/books]
+    R --> S[بررسی JWT Middleware]
+    S -->|بدون توکن| T[خطای 401 - فقدان توکن]
+    S -->|توکن نامعتبر| U[خطای 401 - توکن نامعتبر]
+    S -->|توکن معتبر| V[بررسی Rate Limit]
+    V -->|تعداد درخواست زیاد| W[خطای 429 - درخواست بیش از حد]
+    V -->|مجاز| X[دریافت پارامترهای جستجو]
+    X --> Y[ساخت کلید کش Redis]
+    Y --> Z{بررسی کش Redis}
+    Z -->|موجود| AA[بازگشت داده از کش]
+    Z -->|موجود نیست| BB{آیا query خالی است؟}
+    BB -->|بله| CC[واکشی همه کتاب‌ها با cursor pagination]
+    BB -->|خیر| DD[جستجوی full-text در title و description]
+    CC --> EE[اجرای کوئری SELECT]
+    DD --> EE
+    EE -->|خطا| FF[خطای 500 - خطا در جستجو]
+    EE -->|موفق| GG[محاسبه next_cursor]
+    GG --> HH[ذخیره نتیجه در Redis کش]
+    HH --> II[پاسخ 200 - لیست کتاب‌ها]
+
+    %% دریافت کتاب با ID
+    JJ[کاربر درخواست کتاب خاص] --> KK[GET /api/v1/books/:id]
+    KK --> LL[بررسی JWT Middleware]
+    LL -->|بدون توکن| MM[خطای 401 - فقدان توکن]
+    LL -->|توکن نامعتبر| NN[خطای 401 - توکن نامعتبر]
+    LL -->|توکن معتبر| OO[بررسی Rate Limit]
+    OO -->|تعداد درخواست زیاد| PP[خطای 429 - درخواست بیش از حد]
+    OO -->|مجاز| QQ[استخراج ID از URL]
+    QQ --> RR[جستجوی کتاب در دیتابیس]
+    RR -->|خطا| SS[خطای 500 - خطا در واکشی]
+    RR -->|یافت نشد| TT[خطای 404 - کتاب پیدا نشد]
+    RR -->|یافت شد| UU[پاسخ 200 - اطلاعات کتاب]
+
+    %% بروزرسانی کتاب
+    VV[کاربر درخواست بروزرسانی] --> WW[PUT /api/v1/books/:id]
+    WW --> XX[بررسی JWT Middleware]
+    XX -->|بدون توکن| YY[خطای 401 - فقدان توکن]
+    XX -->|توکن نامعتبر| ZZ[خطای 401 - توکن نامعتبر]
+    XX -->|توکن معتبر| AAA[بررسی Rate Limit]
+    AAA -->|تعداد درخواست زیاد| BBB[خطای 429 - درخواست بیش از حد]
+    AAA -->|مجاز| CCC{بررسی اعتبار داده‌ها}
+    CCC -->|نامعتبر| DDD[خطای 400 - درخواست نامعتبر]
+    CCC -->|معتبر| EEE[واکشی کتاب فعلی از DB]
+    EEE -->|یافت نشد| FFF[خطای 404 - کتاب پیدا نشد]
+    EEE -->|یافت شد| GGG[محاسبه available_copies جدید]
+    GGG --> HHH[ایجاد مدل بروزرسانی]
+    HHH --> III[اجرای UPDATE در دیتابیس]
+    III -->|ناموفق| JJJ[خطای 404 - کتاب پیدا نشد]
+    III -->|موفق| KKK[بروزرسانی کش Redis]
+    KKK --> LLL[پاسخ 200 - کتاب بروزرسانی شد]
+
+    %% حذف کتاب
+    MMM[کاربر درخواست حذف] --> NNN[DELETE /api/v1/books/:id]
+    NNN --> OOO[بررسی JWT Middleware]
+    OOO -->|بدون توکن| PPP[خطای 401 - فقدان توکن]
+    OOO -->|توکن نامعتبر| QQQ[خطای 401 - توکن نامعتبر]
+    OOO -->|توکن معتبر| RRR[بررسی Rate Limit]
+    RRR -->|تعداد درخواست زیاد| SSS[خطای 429 - درخواست بیش از حد]
+    RRR -->|مجاز| TTT[استخراج ID از URL]
+    TTT --> UUU[اجرای DELETE در دیتابیس]
+    UUU -->|ناموفق| VVV[خطای 404 - کتاب پیدا نشد]
+    UUU -->|موفق| WWW[پاسخ 200 - کتاب حذف شد]
+
+    %% استایل‌ها
+    classDef successNode fill:#d4edda,stroke:#155724,color:#155724
+    classDef errorNode fill:#f8d7da,stroke:#721c24,color:#721c24
+    classDef processNode fill:#cce5ff,stroke:#004085,color:#004085
+    classDef authNode fill:#fff3cd,stroke:#856404,color:#856404
+    classDef cacheNode fill:#e2e3e5,stroke:#383d41,color:#383d41
+
+    class P,AA,II,UU,LLL,WWW successNode
+    class D,E,G,I,K,O,T,U,W,FF,MM,NN,PP,SS,TT,YY,ZZ,BBB,DDD,FFF,JJJ,PPP,QQQ,SSS,VVV errorNode
+    class H,J,L,M,N,X,QQ,RR,CCC,EEE,GGG,HHH,III,TTT,UUU processNode
+    class C,F,S,V,LL,OO,XX,AAA,OOO,RRR authNode
+    class Y,Z,HH,KKK cacheNode

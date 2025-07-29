@@ -1,0 +1,95 @@
+flowchart TD
+    %% جستجوی کتاب‌ها
+    A[کاربر درخواست جستجوی کتاب] --> B[GET /api/v1/books?query=value&cursor_id=0&limit=10]
+    B --> C[بررسی JWT Middleware]
+    C -->|بدون توکن| D[خطای 401 - فقدان توکن]
+    C -->|توکن نامعتبر| E[خطای 401 - توکن نامعتبر]
+    C -->|توکن معتبر| F[بررسی Rate Limit]
+    F -->|تعداد درخواست زیاد| G[خطای 429 - درخواست بیش از حد]
+    F -->|مجاز| H[استخراج پارامترهای URL]
+    H --> I[تنظیم cursor_id = 0 اگر خالی]
+    I --> J[تنظیم limit = 10 اگر خالی یا > 100]
+    J --> K[ساخت کلید کش: books:query=X:cursor=Y:limit=Z]
+    K --> L{بررسی Redis Cache}
+    L -->|موجود| M[بازگشت JSON از کش]
+    L -->|موجود نیست| N{آیا query خالی است؟}
+    N -->|بله| O[SELECT * FROM books WHERE id > cursor ORDER BY id LIMIT X]
+    N -->|خیر| P[MATCH title,description AGAINST query AND id > cursor]
+    O --> Q[اجرای کوئری در دیتابیس]
+    P --> Q
+    Q -->|خطا| R[خطای 500 - خطا در جستجو]
+    Q -->|موفق| S[محاسبه next_cursor از آخرین book.ID]
+    S --> T[ساخت response با data, next_cursor, limit]
+    T --> U[ذخیره در Redis به مدت 30 ثانیه]
+    U --> V[پاسخ 200 - نتایج جستجو]
+
+    %% جستجوی یوزرها
+    W[کاربر درخواست جستجوی یوزر] --> X[GET /api/v1/users?query=value&cursor_id=0&limit=10]
+    X --> Y[بررسی JWT Middleware]
+    Y -->|بدون توکن| Z[خطای 401 - فقدان توکن]
+    Y -->|توکن نامعتبر| AA[خطای 401 - توکن نامعتبر]
+    Y -->|توکن معتبر| BB[بررسی Rate Limit]
+    BB -->|تعداد درخواست زیاد| CC[خطای 429 - درخواست بیش از حد]
+    BB -->|مجاز| DD[استخراج پارامترهای URL]
+    DD --> EE[تنظیم cursor_id = 0 اگر خالی]
+    EE --> FF[تنظیم limit = 10 اگر خالی یا > 100]
+    FF --> GG[ساخت کلید کش: users:query=X:cursor=Y:limit=Z]
+    GG --> HH{بررسی Redis Cache}
+    HH -->|موجود| II[بازگشت JSON از کش]
+    HH -->|موجود نیست| JJ[MATCH full_name,email AGAINST query AND id > cursor]
+    JJ --> KK[اجرای کوئری در دیتابیس]
+    KK -->|خطا| LL[خطای 500 - خطا در جستجو]
+    KK -->|موفق| MM[محاسبه next_cursor از آخرین user.ID]
+    MM --> NN[محاسبه total count با همان query]
+    NN --> OO[ساخت response با data, total, next_cursor, limit]
+    OO --> PP[ذخیره در Redis به مدت 30 ثانیه]
+    PP --> QQ[پاسخ 200 - نتایج جستجو]
+
+    %% جستجوی نویسنده‌ها
+    RR[کاربر درخواست جستجوی نویسنده] --> SS[GET /api/v1/authors?query=value&cursor_id=0&limit=10]
+    SS --> TT[بررسی JWT Middleware]
+    TT -->|بدون توکن| UU[خطای 401 - فقدان توکن]
+    TT -->|توکن نامعتبر| VV[خطای 401 - توکن نامعتبر]
+    TT -->|توکن معتبر| WW[بررسی Rate Limit]
+    WW -->|تعداد درخواست زیاد| XX[خطای 429 - درخواست بیش از حد]
+    WW -->|مجاز| YY[استخراج پارامترهای URL]
+    YY --> ZZ[تنظیم cursor_id = 0 اگر خالی]
+    ZZ --> AAA[تنظیم limit = 10 اگر خالی یا > 100]
+    AAA --> BBB[ساخت کلید کش: authors:query=X:cursor=Y:limit=Z]
+    BBB --> CCC{بررسی Redis Cache}
+    CCC -->|موجود| DDD[بازگشت JSON از کش]
+    CCC -->|موجود نیست| EEE{آیا query خالی است؟}
+    EEE -->|بله| FFF[SELECT * FROM authors WHERE id > cursor ORDER BY id LIMIT X]
+    EEE -->|خیر| GGG[MATCH name,biography AGAINST query AND id > cursor]
+    FFF --> HHH[اجرای کوئری در دیتابیس]
+    GGG --> HHH
+    HHH -->|خطا| III[خطای 500 - خطا در جستجو]
+    HHH -->|موفق| JJJ[محاسبه next_cursor از آخرین author.ID]
+    JJJ --> KKK[محاسبه total count با همان query]
+    KKK --> LLL[ساخت response با data, total, next_cursor, limit]
+    LLL --> MMM[ذخیره در Redis به مدت 30 ثانیه]
+    MMM --> NNN[پاسخ 200 - نتایج جستجو]
+
+    %% جزئیات فنی Cursor Pagination
+    OOO[توضیح: Cursor-based Pagination] --> PPP[شروع با cursor_id = 0]
+    PPP --> QQQ[WHERE id > cursor_id ORDER BY id ASC LIMIT X]
+    QQQ --> RRR[next_cursor = آخرین رکورد.ID برگشتی]
+    RRR --> SSS[کلاینت در درخواست بعدی cursor_id = next_cursor]
+    SSS --> TTT[ادامه تا زمانی که نتیجه خالی باشد]
+
+    %% استایل‌ها
+    classDef successNode fill:#d4edda,stroke:#155724,color:#155724
+    classDef errorNode fill:#f8d7da,stroke:#721c24,color:#721c24
+    classDef processNode fill:#cce5ff,stroke:#004085,color:#004085
+    classDef authNode fill:#fff3cd,stroke:#856404,color:#856404
+    classDef cacheNode fill:#e2e3e5,stroke:#383d41,color:#383d41
+    classDef queryNode fill:#e7f3ff,stroke:#0066cc,color:#0066cc
+    classDef infoNode fill:#f0f9ff,stroke:#0284c7,color:#0284c7
+
+    class M,V,II,QQ,DDD,NNN successNode
+    class D,E,G,R,Z,AA,CC,LL,UU,VV,XX,III errorNode
+    class H,I,J,Q,S,T,DD,EE,FF,KK,MM,NN,OO,YY,ZZ,AAA,HHH,JJJ,KKK,LLL processNode
+    class C,F,Y,BB,TT,WW authNode
+    class K,L,U,GG,HH,PP,BBB,CCC,MMM cacheNode
+    class N,O,P,JJ,EEE,FFF,GGG queryNode
+    class OOO,PPP,QQQ,RRR,SSS,TTT infoNode
