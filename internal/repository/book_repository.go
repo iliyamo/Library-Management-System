@@ -83,19 +83,22 @@ func (r *BookRepository) GetBookByID(id int) (*model.Book, error) {
 }
 
 // UpdateBook بروزرسانی؛ مقدار بولی می‌گوید سطری تغییر کرده یا نه
+// UpdateBook بروزرسانی کتاب موجود.
+// جدول books ستونی به نام updated_at ندارد، بنابراین فقط فیلدهای مورد نیاز بروزرسانی می‌شوند.
+// مقدار بولی بازگشتی نشان می‌دهد که آیا سطری تغییر کرده است یا خیر.
 func (r *BookRepository) UpdateBook(b *model.Book) (bool, error) {
-	res, err := r.DB.Exec(`
-		UPDATE books
-		SET title = ?, isbn = ?, author_id = ?, category_id = ?, description = ?,
-		    published_year = ?, total_copies = ?, available_copies = ?, updated_at = ?
-		WHERE id = ?`,
-		b.Title, b.ISBN, b.AuthorID, b.CategoryID, b.Description,
-		b.PublishedYear, b.TotalCopies, b.AvailableCopies, nil, b.ID)
-	if err != nil {
-		return false, err
-	}
-	aff, _ := res.RowsAffected()
-	return aff > 0, nil
+    res, err := r.DB.Exec(`
+        UPDATE books
+        SET title = ?, isbn = ?, author_id = ?, category_id = ?, description = ?,
+            published_year = ?, total_copies = ?, available_copies = ?
+        WHERE id = ?`,
+        b.Title, b.ISBN, b.AuthorID, b.CategoryID, b.Description,
+        b.PublishedYear, b.TotalCopies, b.AvailableCopies, b.ID)
+    if err != nil {
+        return false, err
+    }
+    aff, _ := res.RowsAffected()
+    return aff > 0, nil
 }
 
 // DeleteBook حذف با ID

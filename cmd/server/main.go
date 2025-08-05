@@ -14,6 +14,7 @@ import (
 	"github.com/iliyamo/go-learning/internal/repository"
 	"github.com/iliyamo/go-learning/internal/router"
 	"github.com/iliyamo/go-learning/internal/utils" // ✅ اضافه‌شده برای Redis
+    "github.com/iliyamo/go-learning/internal/queue" // ✅ اضافه‌شده برای RabbitMQ
 )
 
 // App ساختار کلی برنامه شامل وابستگی‌ها
@@ -23,6 +24,7 @@ type App struct {
 	RefreshRepo *repository.RefreshTokenRepository
 	AuthorRepo  *repository.AuthorRepository
 	BookRepo    *repository.BookRepository // ✅ مدیریت کتاب‌ها
+	LoanRepo    *repository.LoanRepository // ✅ مدیریت امانت‌ها
 }
 
 // NewApp مقداردهی اولیهٔ برنامه
@@ -46,13 +48,16 @@ func NewApp() (*App, error) {
 		return nil, errors.New("database connection failed")
 	}
 
-	// ✅ اتصال به Redis
-	utils.InitRedis()
+    // ✅ اتصال به Redis
+    utils.InitRedis()
+    // ✅ مقداردهی RabbitMQ در صورت تنظیم متغیر محیطی
+    queue.InitQueue()
 
 	userRepo := repository.NewUserRepository(db)
 	refreshRepo := repository.NewRefreshTokenRepository(db)
 	authorRepo := repository.NewAuthorRepository(db)
 	bookRepo := repository.NewBookRepository(db)
+	loanRepo := repository.NewLoanRepository(db) // ✅ ساخت ریپازیتوری امانت‌ها
 
 	e := echo.New()
 	e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
@@ -61,6 +66,7 @@ func NewApp() (*App, error) {
 			c.Set("refresh_token_repo", refreshRepo)
 			c.Set("author_repo", authorRepo)
 			c.Set("book_repo", bookRepo)
+			c.Set("loan_repo", loanRepo)
 			return next(c)
 		}
 	})
@@ -73,6 +79,7 @@ func NewApp() (*App, error) {
 		RefreshRepo: refreshRepo,
 		AuthorRepo:  authorRepo,
 		BookRepo:    bookRepo,
+		LoanRepo:    loanRepo,
 	}, nil
 }
 
@@ -83,8 +90,11 @@ func main() {
 		log.Fatal(err)
 	}
 
-	log.Println("Server running on http://localhost:8080")
-	if err := app.Server.Start(":8080"); err != nil {
-		log.Fatal(fmt.Errorf("server error: %w", err))
-	}
+    // بستن RabbitMQ پس از اتمام اجرای سرور
+    defer queue.CloseRabbitMQ()
+
+    log.Println("Server running on http://localhost:8080")
+    if err := app.Server.Start(":8080"); err != nil {
+        log.Fatal(fmt.Errorf("server error: %w", err))
+    }
 }
