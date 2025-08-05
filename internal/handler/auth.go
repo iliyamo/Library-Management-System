@@ -137,22 +137,28 @@ func Login(c echo.Context) error {
 
 // Profile اطلاعات کاربر جاری را بازمی‌گرداند (JWTAuth middleware الزامی است)
 func Profile(c echo.Context) error {
-	// 1. دریافت Claims از context که توسط middleware قرار داده شده
-	claims := c.Get("claims").(*utils.JWTClaims)
-	userID := int(claims.UserID) // تبدیل شناسه به int
+    // 1. دریافت Claims از context که توسط middleware قرار داده شده
+    // ممکن است در برخی موارد claims وجود نداشته باشد (مثلاً به دلیل عدم احراز هویت)،
+    // بنابراین ابتدا نوع‌بندی ایمن انجام می‌دهیم و در صورت نبود claims کد 401 برمی‌گردانیم.
+    rawClaims := c.Get("claims")
+    claims, ok := rawClaims.(*utils.JWTClaims)
+    if !ok || claims == nil {
+        return c.JSON(http.StatusUnauthorized, echo.Map{"error": "unauthorized"})
+    }
+    userID := int(claims.UserID) // تبدیل شناسه به int
 
-	// 2. واکشی اطلاعات کاربری از دیتابیس
-	userRepo := c.Get("user_repo").(*repository.UserRepository)
-	user, err := userRepo.GetUserByID(userID)
-	if err != nil {
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "database error"})
-	}
-	if user == nil {
-		return c.JSON(http.StatusNotFound, echo.Map{"error": "user not found"})
-	}
+    // 2. واکشی اطلاعات کاربری از دیتابیس
+    userRepo := c.Get("user_repo").(*repository.UserRepository)
+    user, err := userRepo.GetUserByID(userID)
+    if err != nil {
+        return c.JSON(http.StatusInternalServerError, echo.Map{"error": "database error"})
+    }
+    if user == nil {
+        return c.JSON(http.StatusNotFound, echo.Map{"error": "user not found"})
+    }
 
-	// 3. بازگشت اطلاعات کاربر
-	return c.JSON(http.StatusOK, user)
+    // 3. بازگشت اطلاعات کاربر
+    return c.JSON(http.StatusOK, user)
 }
 
 // Logout حذف همه‌ی Refresh Token‌های کاربر فعلی (نیازی به خطا دادن نیست)

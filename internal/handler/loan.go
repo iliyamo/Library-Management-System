@@ -1,7 +1,6 @@
 package handler
 
 import (
-    "encoding/json"
     "net/http"
     "strconv"
     "time"
@@ -13,6 +12,10 @@ import (
     "github.com/iliyamo/go-learning/internal/repository"
     "github.com/iliyamo/go-learning/internal/utils"
 )
+
+// loanOpCh acts as a binary semaphore implemented via a buffered channel.
+// It ensures that concurrent borrow/return operations are serialized to avoid race conditions.
+var loanOpCh = make(chan struct{}, 1)
 
 // RequestLoan handles creation of a new loan request for a book. It expects a
 // JSON payload with a single field `book_id`. The currently authenticated user
@@ -54,7 +57,7 @@ func RequestLoan(c echo.Context) error {
 
     // Ensure there is at least one available copy to borrow.
     if book.AvailableCopies < 1 {
-        return c.JSON(http.StatusConflict, echo.Map{"error": "هیچ نسخه‌ای از کتاب موجود نیست"})
+        return c.JSON(http.StatusNotFound, echo.Map{"error": "هیچ نسخه‌ای از کتاب موجود نیست"})
     }
 
     // Check whether the user already has an active (unreturned) loan for this
@@ -68,15 +71,26 @@ func RequestLoan(c echo.Context) error {
         return c.JSON(http.StatusConflict, echo.Map{"error": "شما در حال حاضر این کتاب را به امانت دارید"})
     }
 
+    // Acquire the semaphore to ensure exclusive access for this operation
+    loanOpCh <- struct{}{}
+    defer func() { <-loanOpCh }()
+
     // Build the loan record with loan_date set to now and due_date set to
     // seven days from now.  return_date is nil until the book is returned.
     now := time.Now()
+    // تعیین مدت زمان امانت. اگر کاربر در بدنهٔ درخواست days را مشخص کرده باشد
+    // از آن استفاده می‌شود، در غیر این صورت مقدار پیش‌فرض ۷ روز در نظر گرفته می‌شود.
+    days := req.Days
+    if days <= 0 {
+        days = 7
+    }
+    due := now.Add(time.Duration(days) * 24 * time.Hour)
     loan := &model.Loan{
-        UserID:    userID,
-        BookID:    req.BookID,
-        LoanDate:  now,
-        DueDate:   now.Add(7 * 24 * time.Hour),
-        Status:    model.StatusBorrowed,
+        UserID:     userID,
+        BookID:     req.BookID,
+        LoanDate:   now,
+        DueDate:    due,
+        Status:     model.StatusBorrowed,
         ReturnDate: nil,
     }
     // Insert the loan into the database.  If it fails, return a 500 status.
@@ -91,22 +105,36 @@ func RequestLoan(c echo.Context) error {
     book.AvailableCopies--
     _, _ = bookRepo.UpdateBook(book)
 
-    // Publish a LoanRequested event to the message broker.  The Publish
-    // function is non-critical and any error is silently ignored to avoid
-    // impacting the API response.
-    event := model.LoanEvent{
-        EventType: model.LoanRequested,
-        LoanID:    loan.ID,
-        UserID:    userID,
-        BookID:    req.BookID,
-        Time:      time.Now(),
-    }
-    if data, err := json.Marshal(event); err == nil {
-        _ = queue.Publish("loan_events", string(data))
-    }
+    
+// Publish a LoanRequested event to the message broker.  Include the
+// remaining copies and due date so that the consumer can generate
+// detailed logs.  Any error is silently ignored to avoid impacting
+// the API response.
+event := model.LoanEvent{
+    EventType:       model.LoanRequested,
+    LoanID:          loan.ID,
+    UserID:          userID,
+    BookID:          req.BookID,
+    Time:            time.Now(),
+    RemainingCopies: int(book.AvailableCopies),
+    DueDate:         due,
+}
+_ = queue.PublishEvent(event)
 
-    // Return the created loan record to the caller with HTTP 201.
-    return c.JSON(http.StatusCreated, loan)
+// Build a response map with simplified date strings instead of RFC3339.
+resp := map[string]interface{}{
+    "id":        loan.ID,
+    "user_id":   loan.UserID,
+    "book_id":   loan.BookID,
+    "loan_date": loan.LoanDate.Format("2006-01-02"),
+    "due_date":  due.Format("2006-01-02"),
+    "status":    loan.Status,
+}
+if loan.ReturnDate != nil {
+    resp["return_date"] = loan.ReturnDate.Format("2006-01-02")
+}
+// Return the created loan record with simplified dates.
+return c.JSON(http.StatusCreated, resp)
 }
 
 // ViewMyLoans returns a list of all loans for the currently authenticated user.
@@ -128,8 +156,25 @@ func ViewMyLoans(c echo.Context) error {
     if err != nil {
         return c.JSON(http.StatusInternalServerError, echo.Map{"error": "خطا در واکشی امانت‌ها"})
     }
-    // Always return 200 with the list of loans, even if empty.
-    return c.JSON(http.StatusOK, loans)
+    
+// Always return 200 with the list of loans, even if empty.
+// Transform the loans into a slice of maps with simplified date strings.
+res := make([]map[string]interface{}, len(loans))
+for i, loan := range loans {
+    m := map[string]interface{}{
+        "id":        loan.ID,
+        "user_id":   loan.UserID,
+        "book_id":   loan.BookID,
+        "loan_date": loan.LoanDate.Format("2006-01-02"),
+        "due_date":  loan.DueDate.Format("2006-01-02"),
+        "status":    loan.Status,
+    }
+    if loan.ReturnDate != nil {
+        m["return_date"] = loan.ReturnDate.Format("2006-01-02")
+    }
+    res[i] = m
+}
+return c.JSON(http.StatusOK, res)
 }
 
 // ReturnBook marks a loan as returned and increments the book's available
@@ -166,6 +211,10 @@ func ReturnBook(c echo.Context) error {
     if loan == nil || loan.UserID != userID {
         return c.JSON(http.StatusNotFound, echo.Map{"error": "امانت یافت نشد"})
     }
+    // Acquire the semaphore to ensure exclusive access for this return operation
+    loanOpCh <- struct{}{}
+    defer func() { <-loanOpCh }()
+
     // Only borrowed loans may be returned.
     if loan.Status != model.StatusBorrowed {
         return c.JSON(http.StatusBadRequest, echo.Map{"error": "این امانت قبلاً بازگردانده شده است"})
@@ -190,18 +239,22 @@ func ReturnBook(c echo.Context) error {
         _, _ = bookRepo.UpdateBook(book)
     }
 
-    // Publish a LoanReturned event.  Ignore any error to avoid impacting
-    // the client response.
+    // Publish a LoanReturned event.  Include the remaining copies after
+    // incrementing the inventory.  DueDate is omitted for returned books.
     event := model.LoanEvent{
-        EventType: model.LoanReturned,
-        LoanID:    loan.ID,
-        UserID:    userID,
-        BookID:    loan.BookID,
-        Time:      time.Now(),
+        EventType:       model.LoanReturned,
+        LoanID:          loan.ID,
+        UserID:          userID,
+        BookID:          loan.BookID,
+        Time:            time.Now(),
+        RemainingCopies: 0,
     }
-    if data, err := json.Marshal(event); err == nil {
-        _ = queue.Publish("loan_events", string(data))
+    // If we were able to load the book and update its count, include the
+    // remaining copies value for logging purposes.
+    if book != nil {
+        event.RemainingCopies = int(book.AvailableCopies)
     }
+    _ = queue.PublishEvent(event)
 
     return c.JSON(http.StatusOK, echo.Map{"message": "کتاب بازگردانده شد"})
 }

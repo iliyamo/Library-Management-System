@@ -44,6 +44,7 @@ func RegisterRoutes(e *echo.Echo) {
     books.GET("/:id", handler.GetBookByID)               // دریافت اطلاعات یک کتاب خاص
     books.PUT("/:id", handler.UpdateBook)                // بروزرسانی اطلاعات کتاب
     books.DELETE("/:id", handler.DeleteBook)             // حذف کتاب
+    books.POST("/:id/increase", handler.IncreaseBookCopies) // افزایش تعداد نسخه‌های کتاب
 
 	// 👥 مسیر جستجوی کاربران با پشتیبانی از full-text search و cursor-based pagination
 	users := v1.Group("/users")
@@ -54,6 +55,7 @@ func RegisterRoutes(e *echo.Echo) {
 	loans := v1.Group("/loans")
 	loans.Use(middleware.JWTAuth, middleware.RateLimit) // احراز هویت + محدودسازی
 	loans.POST("", handler.RequestLoan)                 // ثبت درخواست امانت
+	loans.GET("", handler.ViewMyLoans)               // مشاهده لیست امانت‌های خود (پیشفرض برای /loans)
 	loans.GET("/my", handler.ViewMyLoans)               // مشاهده لیست امانت‌های خود
     loans.POST("/:id/return", handler.ReturnBook)        // بازگرداندن کتاب
 }

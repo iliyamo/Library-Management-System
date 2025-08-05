@@ -53,6 +53,21 @@ func NewApp() (*App, error) {
     // ✅ مقداردهی RabbitMQ در صورت تنظیم متغیر محیطی
     queue.InitQueue()
 
+    // Start the message consumer.  If a RabbitMQ URL is provided, use
+    // RabbitMQ; otherwise fall back to Redis Pub/Sub.  The ExampleHandler
+    // simply prints events to the log.  Any errors starting the consumer
+    // are logged but do not abort the application.
+    if amqpURL := os.Getenv("RABBITMQ_URL"); amqpURL != "" {
+        if err := queue.StartRabbitConsumer(amqpURL, queue.ExampleHandler); err != nil {
+            log.Printf("[Queue] Failed to start RabbitMQ consumer: %v", err)
+        }
+    } else {
+        // Use Redis client if available
+        if utils.RedisClient != nil {
+            queue.StartLoanConsumer(utils.RedisClient, queue.ExampleHandler)
+        }
+    }
+
 	userRepo := repository.NewUserRepository(db)
 	refreshRepo := repository.NewRefreshTokenRepository(db)
 	authorRepo := repository.NewAuthorRepository(db)

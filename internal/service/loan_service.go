@@ -53,11 +53,13 @@ func (s *LoanService) RequestLoan(ctx context.Context, userID, bookID uint) erro
     // ساخت و ارسال رویداد به صف پیام.  در صورت تنظیم RabbitMQ رویداد
     // به صورت JSON به صف ارسال می‌شود، در غیر این صورت از Redis استفاده می‌شود.
     event := model.LoanEvent{
-        EventType: model.LoanRequested,
-        LoanID:    loan.ID,
-        UserID:    userID,
-        BookID:    bookID,
-        Time:      time.Now(),
+        EventType:       model.LoanRequested,
+        LoanID:          loan.ID,
+        UserID:          userID,
+        BookID:          bookID,
+        Time:            time.Now(),
+        RemainingCopies: int(book.AvailableCopies),
+        DueDate:         loan.DueDate,
     }
     _ = queue.PublishEvent(event)
     return nil

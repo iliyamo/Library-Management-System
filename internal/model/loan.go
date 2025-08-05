@@ -25,6 +25,10 @@ type Loan struct {
 // other fields are populated by the server.
 type LoanRequest struct {
     BookID uint `json:"book_id"`
+
+    // Days مشخص می‌کند کاربر چند روز می‌خواهد کتاب را به امانت بگیرد. اگر مقدار
+    // صفر یا منفی باشد، سیستم به طور پیش‌فرض ۷ روز را در نظر می‌گیرد.
+    Days   int  `json:"days,omitempty"`
 }
 
 // Valid values for the Status field.  These align with the

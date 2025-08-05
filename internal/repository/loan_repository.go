@@ -19,10 +19,14 @@ func NewLoanRepository(db *sql.DB) *LoanRepository {
 // از آنجا که جدول loans دارای ستون‌های loan_date، due_date و return_date است،
 // در اینجا از همان نام‌ها استفاده می‌کنیم و فیلد status را نیز درج می‌کنیم.
 // مقدار return_date می‌تواند nil باشد که در این صورت به صورت NULL درج می‌شود.
+
 func (r *LoanRepository) CreateLoan(loan *model.Loan) error {
     query := `INSERT INTO loans (user_id, book_id, loan_date, due_date, return_date, status)
         VALUES (?, ?, ?, ?, ?, ?)`
-    _, err := r.DB.Exec(query,
+    // Execute the INSERT and capture the resulting sql.Result to obtain the
+    // auto-generated primary key.  Without retrieving the LastInsertId, the
+    // loan's ID would remain zero in the calling context.
+    res, err := r.DB.Exec(query,
         loan.UserID,
         loan.BookID,
         loan.LoanDate,
@@ -30,8 +34,17 @@ func (r *LoanRepository) CreateLoan(loan *model.Loan) error {
         loan.ReturnDate,
         loan.Status,
     )
-    return err
+    if err != nil {
+        return err
+    }
+    // Attempt to set the ID on the provided struct.  Not all drivers support
+    // LastInsertId (e.g. Postgres), so ignore the error in that case.
+    if id, err := res.LastInsertId(); err == nil {
+        loan.ID = uint(id)
+    }
+    return nil
 }
+
 
 // GetLoansByUser دریافت لیست امانت‌های یک کاربر بر اساس شناسه کاربر
 // نتایج بر اساس جدیدترین loan_date مرتب می‌شوند تا آخرین امانت‌ها در ابتدا نمایش داده شوند.
