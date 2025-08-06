@@ -9,7 +9,7 @@ import (
 
     "github.com/redis/go-redis/v9"
 
-    "github.com/iliyamo/go-learning/internal/model"
+    "github.com/iliyamo/Library-Management-System/internal/model"
 )
 
 var (

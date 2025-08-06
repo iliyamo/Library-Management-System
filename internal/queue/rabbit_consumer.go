@@ -5,7 +5,7 @@ import (
     "encoding/json"
     "log"
 
-    "github.com/iliyamo/go-learning/internal/model"
+    "github.com/iliyamo/Library-Management-System/internal/model"
     "github.com/streadway/amqp"
 )
 

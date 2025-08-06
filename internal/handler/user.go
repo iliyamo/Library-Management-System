@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/iliyamo/go-learning/internal/repository"
-	"github.com/iliyamo/go-learning/internal/utils"
+    "github.com/iliyamo/Library-Management-System/internal/repository"
+    "github.com/iliyamo/Library-Management-System/internal/utils"
 	"github.com/labstack/echo/v4"
 )
 

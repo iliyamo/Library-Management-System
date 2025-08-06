@@ -5,8 +5,8 @@ import (
     "errors"
     "time"
 
-    "github.com/iliyamo/go-learning/internal/model"
-    "github.com/iliyamo/go-learning/internal/queue"
+    "github.com/iliyamo/Library-Management-System/internal/model"
+    "github.com/iliyamo/Library-Management-System/internal/queue"
     "gorm.io/gorm"
 )
 

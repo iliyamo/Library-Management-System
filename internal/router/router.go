@@ -1,10 +1,10 @@
 package router
 
 import (
-	"github.com/labstack/echo/v4"
+    "github.com/labstack/echo/v4"
 
-	"github.com/iliyamo/go-learning/internal/handler"
-	"github.com/iliyamo/go-learning/internal/middleware"
+    "github.com/iliyamo/Library-Management-System/internal/handler"
+    "github.com/iliyamo/Library-Management-System/internal/middleware"
 )
 
 // RegisterRoutes تمام مسیرهای مربوط به نسخه اول API را ثبت می‌کند.

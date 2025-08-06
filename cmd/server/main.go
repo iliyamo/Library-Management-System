@@ -10,11 +10,11 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/labstack/echo/v4"
 
-	"github.com/iliyamo/go-learning/internal/database"
-	"github.com/iliyamo/go-learning/internal/repository"
-	"github.com/iliyamo/go-learning/internal/router"
-	"github.com/iliyamo/go-learning/internal/utils" // ✅ اضافه‌شده برای Redis
-    "github.com/iliyamo/go-learning/internal/queue" // ✅ اضافه‌شده برای RabbitMQ
+    "github.com/iliyamo/Library-Management-System/internal/database"
+    "github.com/iliyamo/Library-Management-System/internal/repository"
+    "github.com/iliyamo/Library-Management-System/internal/router"
+    "github.com/iliyamo/Library-Management-System/internal/utils" // ✅ اضافه‌شده برای Redis
+    "github.com/iliyamo/Library-Management-System/internal/queue" // ✅ اضافه‌شده برای RabbitMQ
 )
 
 // App ساختار کلی برنامه شامل وابستگی‌ها

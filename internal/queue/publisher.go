@@ -18,8 +18,8 @@ import (
 
     "github.com/streadway/amqp"
 
-    "github.com/iliyamo/go-learning/internal/model"
-    "github.com/iliyamo/go-learning/internal/utils"
+    "github.com/iliyamo/Library-Management-System/internal/model"
+    "github.com/iliyamo/Library-Management-System/internal/utils"
 )
 
 // useRabbit is set to true when InitQueue successfully initialises a RabbitMQ

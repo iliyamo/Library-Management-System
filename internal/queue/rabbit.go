@@ -17,7 +17,7 @@ import (
 
     "github.com/streadway/amqp"
 
-    "github.com/iliyamo/go-learning/internal/model"
+    "github.com/iliyamo/Library-Management-System/internal/model"
 )
 
 // RabbitMQClient holds the AMQP connection and channel used for publishing messages.

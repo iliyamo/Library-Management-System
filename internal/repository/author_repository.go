@@ -2,11 +2,11 @@
 package repository
 
 import (
-	"database/sql"
-	"log"
-	"time"
+    "database/sql"
+    "log"
+    "time"
 
-	"github.com/iliyamo/go-learning/internal/model"
+    "github.com/iliyamo/Library-Management-System/internal/model"
 )
 
 // AuthorRepository ساختار ریپازیتوری برای دسترسی به جدول نویسنده‌ها در دیتابیس است.

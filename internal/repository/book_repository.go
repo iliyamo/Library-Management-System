@@ -2,10 +2,10 @@
 package repository
 
 import (
-	"database/sql"
-	"errors"
+    "database/sql"
+    "errors"
 
-	"github.com/iliyamo/go-learning/internal/model"
+    "github.com/iliyamo/Library-Management-System/internal/model"
 )
 
 type BookRepository struct {

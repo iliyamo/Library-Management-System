@@ -4,7 +4,7 @@ import (
     "database/sql"
     "time"
 
-    "github.com/iliyamo/go-learning/internal/model"
+    "github.com/iliyamo/Library-Management-System/internal/model"
 )
 
 type LoanRepository struct {
