@@ -10,10 +10,10 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/labstack/echo/v4"
 
-	"github.com/iliyamo/go-learning/internal/database"
-	"github.com/iliyamo/go-learning/internal/repository"
-	"github.com/iliyamo/go-learning/internal/router"
-	"github.com/iliyamo/go-learning/internal/utils" // ✅ اضافه‌شده برای Redis
+	"github.com/iliyamo/Library-Management-System/internal/database"
+	"github.com/iliyamo/Library-Management-System/internal/repository"
+	"github.com/iliyamo/Library-Management-System/internal/router"
+	"github.com/iliyamo/Library-Management-System/internal/utils"
 )
 
 // App ساختار کلی برنامه شامل وابستگی‌ها
@@ -22,7 +22,7 @@ type App struct {
 	UserRepo    *repository.UserRepository
 	RefreshRepo *repository.RefreshTokenRepository
 	AuthorRepo  *repository.AuthorRepository
-	BookRepo    *repository.BookRepository // ✅ مدیریت کتاب‌ها
+	BookRepo    *repository.BookRepository
 }
 
 // NewApp مقداردهی اولیهٔ برنامه

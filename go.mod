@@ -1,4 +1,4 @@
-module github.com/iliyamo/go-learning
+module github.com/iliyamo/Library-Management-System
 
 go 1.24.3
 

@@ -8,9 +8,9 @@ import (
 	"github.com/labstack/echo/v4" // وب فریم‌ورک Ech
 	"golang.org/x/crypto/bcrypt"  // bcrypt برای هش‌کردن و بررسی رمز عبور
 
-	"github.com/iliyamo/go-learning/internal/model"      // مدل‌های داده‌ای (User)
-	"github.com/iliyamo/go-learning/internal/repository" // دسترسی به داده (UserRepo, RefreshTokenRepo)
-	"github.com/iliyamo/go-learning/internal/utils"      // توليد و اعتبارسنجی JWT
+    "github.com/iliyamo/Library-Management-System/internal/model"      // مدل‌های داده‌ای (User)
+    "github.com/iliyamo/Library-Management-System/internal/repository" // دسترسی به داده (UserRepo, RefreshTokenRepo)
+    "github.com/iliyamo/Library-Management-System/internal/utils"      // توليد و اعتبارسنجی JWT
 )
 
 // AuthRequest ساختار داده‌ای ورودی برای ثبت‌نام و ورود

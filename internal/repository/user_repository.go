@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"errors"
 
-	"github.com/iliyamo/go-learning/internal/model"
+    "github.com/iliyamo/Library-Management-System/internal/model"
 )
 
 // UserRepository ساختاری است برای مدیریت عملیات روی جدول users
