@@ -1,0 +1,30 @@
+version: '3.8'
+
+# این فایل docker-compose محیط لازم برای اجرای RabbitMQ با رابط مدیریتی را فراهم می‌کند.
+# از تصویر rabbitmq:3-management استفاده شده است تا پلاگین مدیریت و جمع‌آوری آمار به‌صورت پیش‌فرض فعال باشند.
+
+services:
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq
+    ports:
+      - "5672:5672"   # پورت پروتکل AMQP برای ارتباط بین سرویس‌ها
+      - "15672:15672" # پورت رابط وب مدیریت RabbitMQ
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+      # غیرفعال‌سازی کلکتور متریک‌ها در نسخهٔ 3-management غیر ضروری است زیرا در این نسخه فعال است.
+      # در صورت تمایل می‌توانید از متغیر زیر برای کنترل کلکتور استفاده کنید:
+      # RABBITMQ_MANAGEMENT_AGENT_DISABLE_METRICS_COLLECTOR: "false"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - app_network
+
+networks:
+  app_network:
+    driver: bridge
+
+volumes:
+  rabbitmq_data:
+    driver: local
