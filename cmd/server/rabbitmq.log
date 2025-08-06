@@ -1,0 +1,31 @@
+[RabbitMQ] 2025/08/05 23:30:29 ✅ RabbitMQ connected and queue declared
+[RabbitMQ] 2025/08/05 23:30:29 consumer started for loan_events
+[RabbitMQ] 2025/08/05 23:35:45 ✅ RabbitMQ connected and queue declared
+[RabbitMQ] 2025/08/05 23:35:45 consumer started for loan_events
+[RabbitMQ] 2025/08/05 23:37:53 publishing event: {EventType:LoanRequested LoanID:0 UserID:6 BookID:21 Time:2025-08-05 23:37:53.3801036 +0330 +0330 m=+127.411144301 RemainingCopies:4 DueDate:2025-08-12 23:37:53.378334 +0330 +0330 m=+604927.409374701}
+[RabbitMQ] 2025/08/05 23:37:53 received event: {EventType:LoanRequested LoanID:0 UserID:6 BookID:21 Time:2025-08-05 23:37:53.3801036 +0330 +0330 RemainingCopies:4 DueDate:2025-08-12 23:37:53.378334 +0330 +0330}
+[RabbitMQ] 2025/08/05 23:37:53 [Loan] کاربر 6 کتاب 21 را به امانت گرفت؛ تعداد نسخه‌های باقی‌مانده: 4. موعد تحویل: 6 روز دیگر.
+[RabbitMQ] 2025/08/05 23:41:56 ✅ RabbitMQ connected and queue declared
+[RabbitMQ] 2025/08/05 23:41:56 consumer started for loan_events
+[RabbitMQ] 2025/08/05 23:43:10 publishing event: {EventType:LoanRequested LoanID:0 UserID:8 BookID:21 Time:2025-08-05 23:43:10.4756638 +0330 +0330 m=+74.361193501 RemainingCopies:3 DueDate:2025-08-06 23:43:10.4722275 +0330 +0330 m=+86474.357757201}
+[RabbitMQ] 2025/08/05 23:43:10 received event: {EventType:LoanRequested LoanID:0 UserID:8 BookID:21 Time:2025-08-05 23:43:10.4756638 +0330 +0330 RemainingCopies:3 DueDate:2025-08-06 23:43:10.4722275 +0330 +0330}
+[RabbitMQ] 2025/08/05 23:43:10 [Loan] User 8 borrowed book 21; remaining copies: 3. Due in 0 days.
+[RabbitMQ] 2025/08/05 23:48:12 ✅ RabbitMQ connected and queue declared
+[RabbitMQ] 2025/08/05 23:48:12 consumer started for loan_events
+[RabbitMQ] 2025/08/05 23:49:41 publishing event: {EventType:LoanRequested LoanID:10 UserID:6 BookID:20 Time:2025-08-05 23:49:41.3978315 +0330 +0330 m=+89.163959601 RemainingCopies:4 DueDate:2025-08-06 23:49:41.3954419 +0330 +0330 m=+86489.161570001}
+[RabbitMQ] 2025/08/05 23:49:41 received event: {EventType:LoanRequested LoanID:10 UserID:6 BookID:20 Time:2025-08-05 23:49:41.3978315 +0330 +0330 RemainingCopies:4 DueDate:2025-08-06 23:49:41.3954419 +0330 +0330}
+[RabbitMQ] 2025/08/05 23:49:41 [Loan] User 6 borrowed book 20; remaining copies: 4. Due in 0 days.
+[RabbitMQ] 2025/08/05 23:55:07 publishing event: {EventType:LoanRequested LoanID:11 UserID:9 BookID:20 Time:2025-08-05 23:55:07.9370445 +0330 +0330 m=+415.703172601 RemainingCopies:3 DueDate:2025-08-06 23:55:07.93469 +0330 +0330 m=+86815.700818101}
+[RabbitMQ] 2025/08/05 23:55:07 received event: {EventType:LoanRequested LoanID:11 UserID:9 BookID:20 Time:2025-08-05 23:55:07.9370445 +0330 +0330 RemainingCopies:3 DueDate:2025-08-06 23:55:07.93469 +0330 +0330}
+[RabbitMQ] 2025/08/05 23:55:07 [Loan] User 9 borrowed book 20; remaining copies: 3. Due in 0 days.
+[RabbitMQ] 2025/08/05 23:55:13 publishing event: {EventType:LoanRequested LoanID:12 UserID:9 BookID:21 Time:2025-08-05 23:55:13.7436523 +0330 +0330 m=+421.509780401 RemainingCopies:2 DueDate:2025-08-06 23:55:13.7404694 +0330 +0330 m=+86821.506597501}
+[RabbitMQ] 2025/08/05 23:55:13 received event: {EventType:LoanRequested LoanID:12 UserID:9 BookID:21 Time:2025-08-05 23:55:13.7436523 +0330 +0330 RemainingCopies:2 DueDate:2025-08-06 23:55:13.7404694 +0330 +0330}
+[RabbitMQ] 2025/08/05 23:55:13 [Loan] User 9 borrowed book 21; remaining copies: 2. Due in 0 days.
+[RabbitMQ] 2025/08/05 23:55:37 publishing event: {EventType:LoanRequested LoanID:13 UserID:11 BookID:21 Time:2025-08-05 23:55:37.4132827 +0330 +0330 m=+445.179410801 RemainingCopies:1 DueDate:2025-08-06 23:55:37.4110264 +0330 +0330 m=+86845.177154501}
+[RabbitMQ] 2025/08/05 23:55:37 received event: {EventType:LoanRequested LoanID:13 UserID:11 BookID:21 Time:2025-08-05 23:55:37.4132827 +0330 +0330 RemainingCopies:1 DueDate:2025-08-06 23:55:37.4110264 +0330 +0330}
+[RabbitMQ] 2025/08/05 23:55:37 [Loan] User 11 borrowed book 21; remaining copies: 1. Due in 0 days.
+[RabbitMQ] 2025/08/05 23:56:45 publishing event: {EventType:LoanRequested LoanID:14 UserID:12 BookID:21 Time:2025-08-05 23:56:45.2951585 +0330 +0330 m=+513.061286601 RemainingCopies:0 DueDate:2025-08-06 23:56:45.2933097 +0330 +0330 m=+86913.059437801}
+[RabbitMQ] 2025/08/05 23:56:45 received event: {EventType:LoanRequested LoanID:14 UserID:12 BookID:21 Time:2025-08-05 23:56:45.2951585 +0330 +0330 RemainingCopies:0 DueDate:2025-08-06 23:56:45.2933097 +0330 +0330}
+[RabbitMQ] 2025/08/05 23:56:45 [Loan] User 12 borrowed book 21; no copies left. Due in 0 days.
+[RabbitMQ] 2025/08/06 00:08:51 ✅ RabbitMQ connected and queue declared
+[RabbitMQ] 2025/08/06 00:08:51 consumer started for loan_events

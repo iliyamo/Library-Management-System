@@ -10,10 +10,11 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/labstack/echo/v4"
 
-	"github.com/iliyamo/Library-Management-System/internal/database"
-	"github.com/iliyamo/Library-Management-System/internal/repository"
-	"github.com/iliyamo/Library-Management-System/internal/router"
-	"github.com/iliyamo/Library-Management-System/internal/utils"
+    "github.com/iliyamo/Library-Management-System/internal/database"
+    "github.com/iliyamo/Library-Management-System/internal/repository"
+    "github.com/iliyamo/Library-Management-System/internal/router"
+    "github.com/iliyamo/Library-Management-System/internal/utils" // ✅ اضافه‌شده برای Redis
+    "github.com/iliyamo/Library-Management-System/internal/queue" // ✅ اضافه‌شده برای RabbitMQ
 )
 
 // App ساختار کلی برنامه شامل وابستگی‌ها
@@ -22,7 +23,8 @@ type App struct {
 	UserRepo    *repository.UserRepository
 	RefreshRepo *repository.RefreshTokenRepository
 	AuthorRepo  *repository.AuthorRepository
-	BookRepo    *repository.BookRepository
+	BookRepo    *repository.BookRepository // ✅ مدیریت کتاب‌ها
+	LoanRepo    *repository.LoanRepository // ✅ مدیریت امانت‌ها
 }
 
 // NewApp مقداردهی اولیهٔ برنامه
@@ -46,13 +48,31 @@ func NewApp() (*App, error) {
 		return nil, errors.New("database connection failed")
 	}
 
-	// ✅ اتصال به Redis
-	utils.InitRedis()
+    // ✅ اتصال به Redis
+    utils.InitRedis()
+    // ✅ مقداردهی RabbitMQ در صورت تنظیم متغیر محیطی
+    queue.InitQueue()
+
+    // Start the message consumer.  If a RabbitMQ URL is provided, use
+    // RabbitMQ; otherwise fall back to Redis Pub/Sub.  The ExampleHandler
+    // simply prints events to the log.  Any errors starting the consumer
+    // are logged but do not abort the application.
+    if amqpURL := os.Getenv("RABBITMQ_URL"); amqpURL != "" {
+        if err := queue.StartRabbitConsumer(amqpURL, queue.ExampleHandler); err != nil {
+            log.Printf("[Queue] Failed to start RabbitMQ consumer: %v", err)
+        }
+    } else {
+        // Use Redis client if available
+        if utils.RedisClient != nil {
+            queue.StartLoanConsumer(utils.RedisClient, queue.ExampleHandler)
+        }
+    }
 
 	userRepo := repository.NewUserRepository(db)
 	refreshRepo := repository.NewRefreshTokenRepository(db)
 	authorRepo := repository.NewAuthorRepository(db)
 	bookRepo := repository.NewBookRepository(db)
+	loanRepo := repository.NewLoanRepository(db) // ✅ ساخت ریپازیتوری امانت‌ها
 
 	e := echo.New()
 	e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
@@ -61,6 +81,7 @@ func NewApp() (*App, error) {
 			c.Set("refresh_token_repo", refreshRepo)
 			c.Set("author_repo", authorRepo)
 			c.Set("book_repo", bookRepo)
+			c.Set("loan_repo", loanRepo)
 			return next(c)
 		}
 	})
@@ -73,6 +94,7 @@ func NewApp() (*App, error) {
 		RefreshRepo: refreshRepo,
 		AuthorRepo:  authorRepo,
 		BookRepo:    bookRepo,
+		LoanRepo:    loanRepo,
 	}, nil
 }
 
@@ -83,8 +105,11 @@ func main() {
 		log.Fatal(err)
 	}
 
-	log.Println("Server running on http://localhost:8080")
-	if err := app.Server.Start(":8080"); err != nil {
-		log.Fatal(fmt.Errorf("server error: %w", err))
-	}
+    // بستن RabbitMQ پس از اتمام اجرای سرور
+    defer queue.CloseRabbitMQ()
+
+    log.Println("Server running on http://localhost:8080")
+    if err := app.Server.Start(":8080"); err != nil {
+        log.Fatal(fmt.Errorf("server error: %w", err))
+    }
 }

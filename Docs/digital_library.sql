@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Jul 22, 2025 at 09:39 PM
+-- Generation Time: Aug 03, 2025 at 03:32 PM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -82,9 +82,10 @@ INSERT INTO `books` (`id`, `title`, `isbn`, `author_id`, `category_id`, `descrip
 (14, 'کتاب تستی', '978-964-312-452-3', 8, NULL, 'این یک کتاب تستی است', 2023, 5, 5, '2025-07-02 12:27:27'),
 (15, 'کتاب تستی', '978-964-912-452-3', 8, NULL, 'این یک کتاب تستی است', 2023, 5, 5, '2025-07-02 12:34:33'),
 (16, 'book', '978-962-912-452-3', 8, NULL, 'این یک کتاب تستی است', 2023, 5, 5, '2025-07-13 10:40:26'),
-(17, 'go', '978-962-912-442-3', 8, NULL, 'این یک کتاب تستی است', 2023, 5, 5, '2025-07-13 10:44:20'),
+(17, 'go', '978-962-912-442-3', 8, NULL, 'این یک کتاب تستی است', 2023, 5, 4, '2025-07-13 10:44:20'),
 (19, 'python by x', '278-462-912-442-3', 8, NULL, 'این یک کتاب تستی است', 2023, 5, 5, '2025-07-13 10:46:03'),
-(20, 'python by y', '278-462-312-442-3', 8, NULL, 'این یک کتاب تستی است', 2023, 5, 5, '2025-07-13 10:46:09');
+(20, 'python by y', '278-462-312-442-3', 8, NULL, 'این یک کتاب تستی است', 2023, 5, 5, '2025-07-13 10:46:09'),
+(21, 'python by y', '278-362-312-442-3', 8, NULL, 'این یک کتاب تستی است', 2023, 5, 5, '2025-08-03 13:26:19');
 
 -- --------------------------------------------------------
 
@@ -129,6 +130,19 @@ CREATE TABLE `loans` (
   `status` enum('borrowed','returned','late') DEFAULT 'borrowed'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+--
+-- Dumping data for table `loans`
+--
+
+INSERT INTO `loans` (`id`, `user_id`, `book_id`, `loan_date`, `due_date`, `return_date`, `status`) VALUES
+(1, 6, 14, '2025-08-03', '2025-08-10', '2025-08-03', 'returned'),
+(2, 6, 14, '2025-08-03', '2025-08-10', '2025-08-03', 'returned'),
+(3, 6, 15, '2025-08-03', '2025-08-10', '2025-08-03', 'returned'),
+(4, 6, 15, '2025-08-03', '2025-08-10', '2025-08-03', 'returned'),
+(5, 6, 16, '2025-08-03', '2025-08-10', '2025-08-03', 'returned'),
+(6, 6, 17, '2025-08-03', '2025-08-10', '2025-08-03', 'returned'),
+(7, 6, 17, '2025-08-03', '2025-08-10', NULL, 'borrowed');
+
 -- --------------------------------------------------------
 
 --
@@ -158,7 +172,8 @@ INSERT INTO `refresh_tokens` (`id`, `user_id`, `token`, `expires_at`, `created_a
 (29, 6, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjo2LCJlbWFpbCI6ImlsaXlhQGV4YW1wbGUuY29tIiwicm9sZV9pZCI6MiwiZXhwIjoxNzUzNTUzODYyLCJpYXQiOjE3NTI5NDkwNjJ9.Ey4OgKccmArQXasezD26YrIDD9gE5MgwTX9xiAPS6p8', '0000-00-00 00:00:00', '2025-07-19 18:17:42'),
 (30, 6, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjo2LCJlbWFpbCI6ImlsaXlhQGV4YW1wbGUuY29tIiwicm9sZV9pZCI6MiwiZXhwIjoxNzUzNTU1MjUwLCJpYXQiOjE3NTI5NTA0NTB9.CxhNnP3mieCfSZw2q_txd2rP4TLD3JvmkrVwVCYxdPM', '0000-00-00 00:00:00', '2025-07-19 18:40:50'),
 (31, 6, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjo2LCJlbWFpbCI6ImlsaXlhQGV4YW1wbGUuY29tIiwicm9sZV9pZCI6MiwiZXhwIjoxNzUzNjE0MTcyLCJpYXQiOjE3NTMwMDkzNzJ9.44UbfJ65AwP8r8yO4w0m7uMu-xmgphlc20CkusncOEU', '0000-00-00 00:00:00', '2025-07-20 11:02:52'),
-(32, 6, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjo2LCJlbWFpbCI6ImlsaXlhQGV4YW1wbGUuY29tIiwicm9sZV9pZCI6MiwiZXhwIjoxNzUzNjE1MzI1LCJpYXQiOjE3NTMwMTA1MjV9.QjZXNOxPNEgL0VurSJNdhm0AJDHFWA6ViibGpp6_sok', '0000-00-00 00:00:00', '2025-07-20 11:22:05');
+(32, 6, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjo2LCJlbWFpbCI6ImlsaXlhQGV4YW1wbGUuY29tIiwicm9sZV9pZCI6MiwiZXhwIjoxNzUzNjE1MzI1LCJpYXQiOjE3NTMwMTA1MjV9.QjZXNOxPNEgL0VurSJNdhm0AJDHFWA6ViibGpp6_sok', '0000-00-00 00:00:00', '2025-07-20 11:22:05'),
+(33, 6, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjo2LCJlbWFpbCI6ImlsaXlhQGV4YW1wbGUuY29tIiwicm9sZV9pZCI6MiwiZXhwIjoxNzU0ODI4MjM0LCJpYXQiOjE3NTQyMjM0MzR9.pxmFPBgSRFgQE5rj7FIYb64PN0epC6TQJWo3SiePy2E', '0000-00-00 00:00:00', '2025-08-03 12:17:14');
 
 -- --------------------------------------------------------
 
@@ -287,7 +302,7 @@ ALTER TABLE `authors`
 -- AUTO_INCREMENT for table `books`
 --
 ALTER TABLE `books`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=21;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=22;
 
 --
 -- AUTO_INCREMENT for table `book_reviews`
@@ -305,13 +320,13 @@ ALTER TABLE `categories`
 -- AUTO_INCREMENT for table `loans`
 --
 ALTER TABLE `loans`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
 
 --
 -- AUTO_INCREMENT for table `refresh_tokens`
 --
 ALTER TABLE `refresh_tokens`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=33;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=34;
 
 --
 -- AUTO_INCREMENT for table `roles`

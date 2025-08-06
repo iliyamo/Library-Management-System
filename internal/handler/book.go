@@ -195,3 +195,43 @@ func DeleteBook(c echo.Context) error {
 	}
 	return c.JSON(http.StatusOK, echo.Map{"message": "کتاب حذف شد"})
 }
+
+
+// IncreaseCopiesRequest represents the JSON body for increasing a book's copies.
+type IncreaseCopiesRequest struct {
+    Quantity int `json:"quantity"`
+}
+
+// IncreaseBookCopies ➔ POST /books/:id/increase
+// This endpoint increases both TotalCopies and AvailableCopies for a given book.
+// It expects a JSON body with a positive "quantity" value.  To prevent race
+// conditions when multiple requests arrive concurrently, it uses the
+// package-level loanOpCh semaphore defined in loan.go to serialize updates.
+func IncreaseBookCopies(c echo.Context) error {
+    repo := c.Get("book_repo").(*repository.BookRepository)
+    id, _ := strconv.Atoi(c.Param("id"))
+    var req IncreaseCopiesRequest
+    if err := c.Bind(&req); err != nil || req.Quantity <= 0 {
+        return c.JSON(http.StatusBadRequest, echo.Map{"error": "درخواست نامعتبر یا مقدار نامعتبر"})
+    }
+    book, err := repo.GetBookByID(id)
+    if err != nil {
+        return c.JSON(http.StatusInternalServerError, echo.Map{"error": "خطا در واکشی کتاب"})
+    }
+    if book == nil {
+        return c.JSON(http.StatusNotFound, echo.Map{"error": "کتاب پیدا نشد"})
+    }
+    // Acquire the semaphore to ensure exclusive update of book copies
+    loanOpCh <- struct{}{}
+    defer func() { <-loanOpCh }()
+    book.TotalCopies += req.Quantity
+    book.AvailableCopies += req.Quantity
+    _, err = repo.UpdateBook(book)
+    if err != nil {
+        return c.JSON(http.StatusInternalServerError, echo.Map{"error": "خطا در بروزرسانی کتاب"})
+    }
+    return c.JSON(http.StatusOK, echo.Map{
+        "message": "تعداد نسخه‌ها افزایش یافت",
+        "book":    book,
+    })
+}

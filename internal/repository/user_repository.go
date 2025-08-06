@@ -1,8 +1,8 @@
 package repository
 
 import (
-	"database/sql"
-	"errors"
+    "database/sql"
+    "errors"
 
     "github.com/iliyamo/Library-Management-System/internal/model"
 )
