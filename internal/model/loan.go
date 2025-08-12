@@ -3,38 +3,28 @@ package model
 
 import "time"
 
-// Loan نمایان‌گر یک رکورد امانت کتاب است
-// Loan represents a borrow record in the loans table.  The field
-// names and types mirror the columns defined in the SQL schema
-// (Docs/digital_library.sql).  See the loans table definition for
-// reference: id, user_id, book_id, loan_date, due_date, return_date,
-// status.
+// Loan نمایان‌گر یک رکورد امانت کتاب است.
+// تگ‌های gorm:type:date برای سازگاری با ستون‌های DATE در MySQL.
 type Loan struct {
-    ID        uint       `json:"id" gorm:"primaryKey"`
-    UserID    uint       `json:"user_id"`   // foreign key to users.id
-    BookID    uint       `json:"book_id"`   // foreign key to books.id
-    LoanDate  time.Time  `json:"loan_date"` // when the book was borrowed
-    DueDate   time.Time  `json:"due_date"`  // when it must be returned
-    ReturnDate *time.Time `json:"return_date,omitempty"` // actual return time
-    Status    string     `json:"status"`    // borrowed, returned or late
+	ID         uint       `json:"id" gorm:"primaryKey"`
+	UserID     uint       `json:"user_id"`                                // FK به users.id
+	BookID     uint       `json:"book_id"`                                // FK به books.id
+	LoanDate   time.Time  `json:"loan_date"  gorm:"type:date"`            // DATE
+	DueDate    time.Time  `json:"due_date"   gorm:"type:date"`            // DATE
+	ReturnDate *time.Time `json:"return_date,omitempty" gorm:"type:date"` // DATE/NULL
+	Status     string     `json:"status"`                                 // borrowed | returned | late
 }
 
-// LoanRequest captures the minimal information required from a
-// client to initiate a borrow.  Only the book identifier is
-// necessary; user_id is inferred from the authenticated context and
-// other fields are populated by the server.
+// LoanRequest ورودی کلاینت برای شروع امانت.
 type LoanRequest struct {
-    BookID uint `json:"book_id"`
-
-    // Days مشخص می‌کند کاربر چند روز می‌خواهد کتاب را به امانت بگیرد. اگر مقدار
-    // صفر یا منفی باشد، سیستم به طور پیش‌فرض ۷ روز را در نظر می‌گیرد.
-    Days   int  `json:"days,omitempty"`
+	BookID uint `json:"book_id"`
+	// Days اگر صفر یا منفی باشد، در هندلر/سرویس شما ۷ روز پیش‌فرض اعمال می‌شود.
+	Days int `json:"days,omitempty"`
 }
 
-// Valid values for the Status field.  These align with the
-// underlying ENUM in the loans table: borrowed, returned and late.
+// مقادیر معتبر وضعیت وام (هم‌راستا با ENUM دیتابیس).
 const (
-    StatusBorrowed = "borrowed" // the book is currently borrowed
-    StatusReturned = "returned" // the book has been returned
-    StatusLate     = "late"     // the book has not been returned by the due date
+	StatusBorrowed = "borrowed"
+	StatusReturned = "returned"
+	StatusLate     = "late"
 )

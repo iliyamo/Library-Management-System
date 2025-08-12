@@ -5,8 +5,8 @@ import (
 	"net/http" // برای ارسال پاسخ HTTP با وضعیت مناسب
 	"strings"  // برای پردازش رشته هدر Authorization
 
-    "github.com/iliyamo/Library-Management-System/internal/utils" // توابع اعتبارسنجی و ساخت توکن JWT
-	"github.com/labstack/echo/v4"                   // فریم‌ورک Echo برای هندل درخواست‌ها
+	"github.com/iliyamo/Library-Management-System/internal/utils" // توابع اعتبارسنجی و ساخت توکن JWT
+	"github.com/labstack/echo/v4"                                 // فریم‌ورک Echo برای هندل درخواست‌ها
 )
 
 // JWTAuth میدل‌ویری است برای محافظت از مسیر‌های نیازمند احراز هویت.
@@ -26,7 +26,7 @@ func JWTAuth(next echo.HandlerFunc) echo.HandlerFunc {
 			})
 		}
 
-		// 2. جدا کردن عبارت "Bearer " از ابتدای هدر
+		// از ابتدای هدر " "Bearer 2. جدا کردن عبارت
 		tokenString := strings.TrimSpace(strings.TrimPrefix(authHeader, "Bearer "))
 
 		// 3. اعتبارسنجی توکن و بازگشت claims سفارشی
