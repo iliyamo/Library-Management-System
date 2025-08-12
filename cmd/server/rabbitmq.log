@@ -29,3 +29,47 @@
 [RabbitMQ] 2025/08/05 23:56:45 [Loan] User 12 borrowed book 21; no copies left. Due in 0 days.
 [RabbitMQ] 2025/08/06 00:08:51 ✅ RabbitMQ connected and queue declared
 [RabbitMQ] 2025/08/06 00:08:51 consumer started for loan_events
+[RabbitMQ] 2025/08/10 15:06:46 ✅ RabbitMQ connected; queues declared: "loan_events", "loan_commands"
+[RabbitMQ] 2025/08/10 15:06:46 consumer started for loan_events
+[RabbitMQ] 2025/08/10 15:09:08 ✅ RabbitMQ connected; queues declared: "loan_events", "loan_commands"
+[RabbitMQ] 2025/08/10 15:09:08 consumer started for loan_events
+[RabbitMQ] 2025/08/10 15:10:56 received event: {EventType:LoanReturned LoanID:10 UserID:6 BookID:20 Time:2025-08-10 15:10:56.4031528 +0330 +0330 RemainingCopies:4 DueDate:0001-01-01 00:00:00 +0000 UTC}
+[RabbitMQ] 2025/08/10 15:10:56 [Loan] User 6 returned book 20. Remaining copies: 4.
+[RabbitMQ] 2025/08/10 15:11:41 received event: {EventType:LoanRequested LoanID:15 UserID:6 BookID:14 Time:2025-08-10 15:11:41.9861447 +0330 +0330 RemainingCopies:4 DueDate:2025-08-17 15:11:41.983854 +0330 +0330}
+[RabbitMQ] 2025/08/10 15:11:41 [Loan] User 6 borrowed book 14; remaining copies: 4. Due in 6 days.
+[RabbitMQ] 2025/08/10 16:19:02 ✅ RabbitMQ connected; queues declared: "loan_events", "loan_commands"
+[RabbitMQ] 2025/08/10 16:19:02 consumer started for loan_events
+[RabbitMQ] 2025/08/10 16:19:27 received event: {EventType:LoanRequested LoanID:16 UserID:6 BookID:15 Time:2025-08-10 16:19:27.5322684 +0330 +0330 RemainingCopies:4 DueDate:2025-08-17 16:19:27.521862 +0330 +0330}
+[RabbitMQ] 2025/08/10 16:19:27 [Loan] User 6 borrowed book 15; remaining copies: 4. Due in 6 days.
+[RabbitMQ] 2025/08/10 19:11:14 ✅ RabbitMQ connected; queues declared: "loan_events", "loan_commands"
+[RabbitMQ] 2025/08/10 19:11:14 ✅ RabbitMQ consumer started for loan_events (manual ack mode)
+[RabbitMQ] 2025/08/10 19:12:02 [RabbitConsumer] received event: {EventType:LoanReturned LoanID:15 UserID:6 BookID:14 Time:2025-08-10 19:12:02.5271885 +0330 +0330 RemainingCopies:5 DueDate:0001-01-01 00:00:00 +0000 UTC}
+[RabbitMQ] 2025/08/10 19:12:02 [Loan] User 6 returned book 14. Remaining copies: 5.
+[RabbitMQ] 2025/08/10 19:15:30 [RabbitConsumer] received event: {EventType:LoanReturned LoanID:16 UserID:6 BookID:15 Time:2025-08-10 19:15:30.3570171 +0330 +0330 RemainingCopies:5 DueDate:0001-01-01 00:00:00 +0000 UTC}
+[RabbitMQ] 2025/08/10 19:15:30 [Loan] User 6 returned book 15. Remaining copies: 5.
+[RabbitMQ] 2025/08/10 19:16:14 [RabbitConsumer] received event: {EventType:LoanRequested LoanID:17 UserID:6 BookID:15 Time:2025-08-10 19:16:14.0245819 +0330 +0330 RemainingCopies:4 DueDate:2025-08-17 19:16:14.0075825 +0330 +0330}
+[RabbitMQ] 2025/08/10 19:16:14 [Loan] User 6 borrowed book 15; remaining copies: 4. Due in 6 days.
+[RabbitMQ] 2025/08/10 19:27:17 ✅ RabbitMQ connected; queues declared: "loan_events", "loan_commands"
+[RabbitMQ] 2025/08/10 19:27:17 ✅ RabbitMQ consumer started for loan_events (manual ack mode)
+[RabbitMQ] 2025/08/10 19:41:06 ✅ RabbitMQ connected; queues declared: "loan_events", "loan_commands"
+[RabbitMQ] 2025/08/10 19:41:06 ✅ RabbitMQ consumer started for loan_events (manual ack mode)
+[RabbitMQ] 2025/08/10 19:49:26 ✅ RabbitMQ connected; queues declared: "loan_events", "loan_commands"
+[RabbitMQ] 2025/08/10 19:49:26 ✅ RabbitMQ consumer started for loan_events (manual ack mode)
+[RabbitMQ] 2025/08/10 19:49:26 [RabbitConsumer] received event: {EventType:LoanReturned LoanID:17 UserID:6 BookID:15 Time:2025-08-10 19:49:26.5670494 +0330 +0330 RemainingCopies:5 DueDate:0001-01-01 00:00:00 +0000 UTC}
+[RabbitMQ] 2025/08/10 19:49:26 [Loan] User 6 returned book 15. Remaining copies: 5.
+[RabbitMQ] 2025/08/10 19:51:07 ✅ RabbitMQ connected; queues declared: "loan_events", "loan_commands"
+[RabbitMQ] 2025/08/10 19:51:07 ✅ RabbitMQ consumer started for loan_events (manual ack mode)
+[RabbitMQ] 2025/08/12 17:24:16 ✅ RabbitMQ connected; queues declared: "loan_events", "loan_commands"
+[RabbitMQ] 2025/08/12 17:24:16 ✅ RabbitMQ consumer started for loan_events (manual ack mode)
+[RabbitMQ] 2025/08/12 17:49:42 ✅ RabbitMQ connected; queues declared: "loan_events", "loan_commands"
+[RabbitMQ] 2025/08/12 17:49:42 ✅ RabbitMQ consumer started for loan_events (manual ack mode)
+[RabbitMQ] 2025/08/12 17:49:42 [RabbitConsumer] received event: {EventType:LoanReturned LoanID:8 UserID:6 BookID:21 Time:2025-08-12 17:49:42.0642467 +0330 +0330 RemainingCopies:9 DueDate:0001-01-01 00:00:00 +0000 UTC}
+[RabbitMQ] 2025/08/12 17:49:42 [Loan] User 6 returned book 21. Remaining copies: 9.
+[RabbitMQ] 2025/08/12 17:57:10 ✅ RabbitMQ connected; queues declared: "loan_events", "loan_commands"
+[RabbitMQ] 2025/08/12 17:57:10 ✅ RabbitMQ consumer started for loan_events (manual ack mode)
+[RabbitMQ] 2025/08/12 17:57:26 ✅ RabbitMQ connected; queues declared: "loan_events", "loan_commands"
+[RabbitMQ] 2025/08/12 17:57:26 ✅ RabbitMQ consumer started for loan_events (manual ack mode)
+[RabbitMQ] 2025/08/12 18:04:11 ✅ RabbitMQ connected; queues declared: "loan_events", "loan_commands"
+[RabbitMQ] 2025/08/12 18:04:11 ✅ RabbitMQ consumer started for loan_events (manual ack mode)
+[RabbitMQ] 2025/08/12 18:07:57 ✅ RabbitMQ connected; queues declared: "loan_events", "loan_commands"
+[RabbitMQ] 2025/08/12 18:07:57 ✅ RabbitMQ consumer started for loan_events (manual ack mode)
