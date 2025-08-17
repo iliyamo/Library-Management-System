@@ -1,145 +1,146 @@
 // internal/queue/rabbit.go
 //
-// This file defines a minimal RabbitMQ client wrapper for the go-learning
-// project.  It encapsulates the connection and channel to RabbitMQ and
-// exposes helper functions to initialise and close these resources as well
-// as publish loan events.  The implementation is kept simple to avoid
-// unnecessary complexity for developers who are just getting started with Go.
+// Minimal RabbitMQ wrapper: holds a connection/channel, declares the required
+// queues, and provides helpers to publish JSON/text messages.
 
 package queue
 
 import (
-    "encoding/json"
-    "fmt"
-    "log"
-    "os"
-    "io"
+	"encoding/json"
+	"fmt"
+	"io"
+	"log"
+	"os"
 
-    "github.com/streadway/amqp"
+	"github.com/streadway/amqp"
 
-    "github.com/iliyamo/Library-Management-System/internal/model"
+	"github.com/iliyamo/Library-Management-System/internal/model"
 )
 
 // RabbitMQClient holds the AMQP connection and channel used for publishing messages.
 type RabbitMQClient struct {
-    Conn    *amqp.Connection
-    Channel *amqp.Channel
+	Conn    *amqp.Connection
+	Channel *amqp.Channel
 }
 
-// rabbitClient is a package-level singleton.  It will be initialised on demand
-// by InitRabbitMQ and closed via CloseRabbitMQ.
-var rabbitClient *RabbitMQClient
-
-// rabbitLogger writes RabbitMQ-specific logs to both standard output and a file.  It is
-// initialised in InitRabbitMQ when a connection is successfully established.  All
-// publishing and consuming operations should write to this logger rather than the
-// global logger so that RabbitMQ activities are captured separately.  If
-// rabbitLogger is nil, logging falls back to the standard log package.
+// package-level singletons
 var (
-    rabbitLogger  *log.Logger
-    rabbitLogFile *os.File
+	rabbitClient  *RabbitMQClient
+	rabbitLogger  *log.Logger
+	rabbitLogFile *os.File
 )
 
-// InitRabbitMQ establishes a connection to RabbitMQ and declares a durable
-// queue named "loan_events".  If a connection is already present, this
-// function does nothing.  Any errors encountered are returned to the caller.
+// InitRabbitMQ establishes a connection to RabbitMQ and declares durable queues.
+// If already initialised, it’s a no-op.
 func InitRabbitMQ(amqpURL string) error {
-    if rabbitClient != nil {
-        return nil
-    }
-    conn, err := amqp.Dial(amqpURL)
-    if err != nil {
-        return fmt.Errorf("failed to connect to RabbitMQ: %w", err)
-    }
-    ch, err := conn.Channel()
-    if err != nil {
-        conn.Close()
-        return fmt.Errorf("failed to open channel: %w", err)
-    }
-    // Declare the queue to ensure it exists.  Durable queues survive broker restarts.
-    if _, err := ch.QueueDeclare(
-        "loan_events",
-        true,  // durable
-        false, // autoDelete
-        false, // exclusive
-        false, // noWait
-        nil,   // args
-    ); err != nil {
-        ch.Close()
-        conn.Close()
-        return fmt.Errorf("failed to declare queue: %w", err)
-    }
-    rabbitClient = &RabbitMQClient{Conn: conn, Channel: ch}
-    // Initialise a dedicated logger for RabbitMQ.  Logs are written to
-    // rabbitmq.log in append mode as well as stdout.  Any failure to
-    // open the log file does not prevent the connection from being
-    // established but will fall back to the default logger.
-    if rabbitLogger == nil {
-        // Create or open the log file once per application run
-        f, errf := os.OpenFile("rabbitmq.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
-        if errf == nil {
-            rabbitLogFile = f
-            multi := io.MultiWriter(os.Stdout, f)
-            rabbitLogger = log.New(multi, "[RabbitMQ] ", log.LstdFlags)
-        } else {
-            // Unable to open log file; fall back to stdout only
-            rabbitLogger = log.New(os.Stdout, "[RabbitMQ] ", log.LstdFlags)
-        }
-    }
-    if rabbitLogger != nil {
-        rabbitLogger.Println("✅ RabbitMQ connected and queue declared")
-    } else {
-        log.Println("✅ RabbitMQ connected and queue declared")
-    }
-    return nil
+	if rabbitClient != nil {
+		return nil
+	}
+
+	conn, err := amqp.Dial(amqpURL)
+	if err != nil {
+		return fmt.Errorf("failed to connect to RabbitMQ: %w", err)
+	}
+	ch, err := conn.Channel()
+	if err != nil {
+		_ = conn.Close()
+		return fmt.Errorf("failed to open channel: %w", err)
+	}
+
+	// Declare required queues (durable)
+	if err := declareQueues(ch); err != nil {
+		_ = ch.Close()
+		_ = conn.Close()
+		return err
+	}
+
+	rabbitClient = &RabbitMQClient{Conn: conn, Channel: ch}
+
+	// Dedicated logger → stdout + file
+	if rabbitLogger == nil {
+		if f, errf := os.OpenFile("rabbitmq.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644); errf == nil {
+			rabbitLogFile = f
+			multi := io.MultiWriter(os.Stdout, f)
+			rabbitLogger = log.New(multi, "[RabbitMQ] ", log.LstdFlags)
+		} else {
+			rabbitLogger = log.New(os.Stdout, "[RabbitMQ] ", log.LstdFlags)
+		}
+	}
+	if rabbitLogger != nil {
+		rabbitLogger.Printf("✅ RabbitMQ connected; queues declared: %q, %q", LoanEventsQueue, LoanCommandsQueue)
+	} else {
+		log.Printf("✅ RabbitMQ connected; queues declared: %q, %q", LoanEventsQueue, LoanCommandsQueue)
+	}
+	return nil
 }
 
-// PublishLoanEvent publishes a loan event to the loan_events queue.  The event
-// is marshalled to JSON before publishing.  If RabbitMQ is not initialised
-// the function returns an error so callers can decide whether to fall back.
+// declareQueues ensures the needed queues exist (durable, non-autoDelete).
+func declareQueues(ch *amqp.Channel) error {
+	queues := []string{LoanEventsQueue, LoanCommandsQueue}
+	for _, q := range queues {
+		if _, err := ch.QueueDeclare(
+			q,
+			true,  // durable
+			false, // autoDelete
+			false, // exclusive
+			false, // noWait
+			nil,   // args
+		); err != nil {
+			return fmt.Errorf("failed to declare queue %q: %w", q, err)
+		}
+	}
+	return nil
+}
+
+// PublishToRabbit publishes raw bytes to a specific queue (direct default exchange).
+func PublishToRabbit(queue string, body []byte, contentType string) error {
+	if rabbitClient == nil || rabbitClient.Channel == nil {
+		return fmt.Errorf("RabbitMQ is not initialised")
+	}
+	if contentType == "" {
+		contentType = "text/plain"
+	}
+	if rabbitLogger != nil {
+		rabbitLogger.Printf("publishing to %s (%d bytes)", queue, len(body))
+	}
+	return rabbitClient.Channel.Publish(
+		"",
+		queue,
+		false,
+		false,
+		amqp.Publishing{
+			ContentType: contentType,
+			Body:        body,
+		},
+	)
+}
+
+// PublishLoanEvent marshals and publishes a LoanEvent to the loan_events queue.
 func PublishLoanEvent(event model.LoanEvent) error {
-    if rabbitClient == nil || rabbitClient.Channel == nil {
-        return fmt.Errorf("RabbitMQ is not initialised")
-    }
-    body, err := json.Marshal(event)
-    if err != nil {
-        return fmt.Errorf("failed to marshal event: %w", err)
-    }
-    // Log the outgoing event
-    if rabbitLogger != nil {
-        rabbitLogger.Printf("publishing event: %+v", event)
-    }
-    err = rabbitClient.Channel.Publish(
-        "",
-        "loan_events",
-        false,
-        false,
-        amqp.Publishing{
-            ContentType: "application/json",
-            Body:        body,
-        },
-    )
-    return err
+	b, err := json.Marshal(event)
+	if err != nil {
+		return fmt.Errorf("failed to marshal event: %w", err)
+	}
+	if rabbitLogger != nil {
+		rabbitLogger.Printf("publishing event to %s: %+v", LoanEventsQueue, event)
+	}
+	return PublishToRabbit(LoanEventsQueue, b, "application/json")
 }
 
-// CloseRabbitMQ closes the channel and connection if they are open.  It is
-// safe to call this function multiple times; subsequent calls have no effect.
+// CloseRabbitMQ closes channel/connection and the dedicated log file.
 func CloseRabbitMQ() {
-    if rabbitClient != nil {
-        if rabbitClient.Channel != nil {
-            _ = rabbitClient.Channel.Close()
-        }
-        if rabbitClient.Conn != nil {
-            _ = rabbitClient.Conn.Close()
-        }
-        rabbitClient = nil
-    }
-    // Close the RabbitMQ log file if one was opened.  We track the file in
-    // rabbitLogFile so it can be closed explicitly on shutdown.  After
-    // closing the file we nil out both the logger and the file handle.
-    if rabbitLogFile != nil {
-        _ = rabbitLogFile.Close()
-        rabbitLogFile = nil
-    }
-    rabbitLogger = nil
+	if rabbitClient != nil {
+		if rabbitClient.Channel != nil {
+			_ = rabbitClient.Channel.Close()
+		}
+		if rabbitClient.Conn != nil {
+			_ = rabbitClient.Conn.Close()
+		}
+		rabbitClient = nil
+	}
+	if rabbitLogFile != nil {
+		_ = rabbitLogFile.Close()
+		rabbitLogFile = nil
+	}
+	rabbitLogger = nil
 }

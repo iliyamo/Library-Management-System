@@ -1,30 +1,82 @@
-version: '3.8'
-
-# این فایل docker-compose محیط لازم برای اجرای RabbitMQ با رابط مدیریتی را فراهم می‌کند.
-# از تصویر rabbitmq:3-management استفاده شده است تا پلاگین مدیریت و جمع‌آوری آمار به‌صورت پیش‌فرض فعال باشند.
-
 services:
-  rabbitmq:
-    image: rabbitmq:3-management
-    container_name: rabbitmq
+  # Golang app container
+  app:
+    build: .
     ports:
-      - "5672:5672"   # پورت پروتکل AMQP برای ارتباط بین سرویس‌ها
-      - "15672:15672" # پورت رابط وب مدیریت RabbitMQ
+      - "8080:8080"
     environment:
-      RABBITMQ_DEFAULT_USER: guest
-      RABBITMQ_DEFAULT_PASS: guest
-      # غیرفعال‌سازی کلکتور متریک‌ها در نسخهٔ 3-management غیر ضروری است زیرا در این نسخه فعال است.
-      # در صورت تمایل می‌توانید از متغیر زیر برای کنترل کلکتور استفاده کنید:
-      # RABBITMQ_MANAGEMENT_AGENT_DISABLE_METRICS_COLLECTOR: "false"
-    volumes:
-      - rabbitmq_data:/var/lib/rabbitmq
+      - DB_USER=root
+      - DB_PASSWORD=password
+      - DB_HOST=db
+      - DB_PORT=3306
+      - DB_NAME=digital_library  # تغییر نام دیتابیس به digital_library
+      - REDIS_ADDR=redis:6379
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
     networks:
-      - app_network
+      - backend
+    command: ["./main"]  # اجرای باینری Go کامپایل شده
 
-networks:
-  app_network:
-    driver: bridge
+  # MySQL database container
+  db:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: password  # پسورد برای کاربر root
+      MYSQL_DATABASE: digital_library  # نام دیتابیس
+    ports:
+      - "3306:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+      - ./Docs/digital_library.sql:/docker-entrypoint-initdb.d/digital_library.sql  # اضافه کردن فایل SQL برای پر کردن دیتابیس
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u root --password=$MYSQL_ROOT_PASSWORD"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
+  # Redis container
+  redis:
+    image: redis:6.2
+    ports:
+      - "6379:6379"
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+  # RabbitMQ container
+  rabbitmq:
+    image: "rabbitmq:management"
+    ports:
+      - "15672:15672" # RabbitMQ Management UI
+      - "5672:5672"   # RabbitMQ default port
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+# Volumes to persist data between container restarts
 volumes:
-  rabbitmq_data:
-    driver: local
+  db_data:
+
+# Define custom networks
+networks:
+  backend:
+    driver: bridge

@@ -8,11 +8,16 @@ import (
 	"strconv"
 	"time"
 
-    "github.com/iliyamo/Library-Management-System/internal/model"
-    "github.com/iliyamo/Library-Management-System/internal/repository"
-    "github.com/iliyamo/Library-Management-System/internal/utils"
+	"github.com/iliyamo/Library-Management-System/internal/model"
+	"github.com/iliyamo/Library-Management-System/internal/repository"
+	"github.com/iliyamo/Library-Management-System/internal/utils"
 	"github.com/labstack/echo/v4"
 )
+
+// به‌جای تکیه به loanOpCh (که در نسخهٔ صف‌محورِ loan.go حذف شد)
+// یک سمافور اختصاصی برای عملیات کتاب‌ها تعریف می‌کنیم تا آپدیت‌های
+// همزمان روی شمارنده‌ها سریال شوند و مسابقهٔ داده رخ ندهد.
+var bookOpCh = make(chan struct{}, 1)
 
 // BookRequest داده‌ای که از کلاینت می‌گیریم
 type BookRequest struct {
@@ -146,6 +151,10 @@ func UpdateBook(c echo.Context) error {
 		return c.JSON(http.StatusNotFound, echo.Map{"error": "کتاب پیدا نشد"})
 	}
 
+	// سریال‌سازی آپدیت تعداد نسخه‌ها برای جلوگیری از race
+	bookOpCh <- struct{}{}
+	defer func() { <-bookOpCh }()
+
 	availableCopies := currentBook.AvailableCopies + (req.TotalCopies - currentBook.TotalCopies)
 	if availableCopies < 0 {
 		availableCopies = 0
@@ -196,42 +205,41 @@ func DeleteBook(c echo.Context) error {
 	return c.JSON(http.StatusOK, echo.Map{"message": "کتاب حذف شد"})
 }
 
-
 // IncreaseCopiesRequest represents the JSON body for increasing a book's copies.
 type IncreaseCopiesRequest struct {
-    Quantity int `json:"quantity"`
+	Quantity int `json:"quantity"`
 }
 
 // IncreaseBookCopies ➔ POST /books/:id/increase
-// This endpoint increases both TotalCopies and AvailableCopies for a given book.
-// It expects a JSON body with a positive "quantity" value.  To prevent race
-// conditions when multiple requests arrive concurrently, it uses the
-// package-level loanOpCh semaphore defined in loan.go to serialize updates.
+// این اندپوینت TotalCopies و AvailableCopies را با هم افزایش می‌دهد.
+// برای جلوگیری از race condition از سمافور محلی bookOpCh استفاده می‌کنیم.
 func IncreaseBookCopies(c echo.Context) error {
-    repo := c.Get("book_repo").(*repository.BookRepository)
-    id, _ := strconv.Atoi(c.Param("id"))
-    var req IncreaseCopiesRequest
-    if err := c.Bind(&req); err != nil || req.Quantity <= 0 {
-        return c.JSON(http.StatusBadRequest, echo.Map{"error": "درخواست نامعتبر یا مقدار نامعتبر"})
-    }
-    book, err := repo.GetBookByID(id)
-    if err != nil {
-        return c.JSON(http.StatusInternalServerError, echo.Map{"error": "خطا در واکشی کتاب"})
-    }
-    if book == nil {
-        return c.JSON(http.StatusNotFound, echo.Map{"error": "کتاب پیدا نشد"})
-    }
-    // Acquire the semaphore to ensure exclusive update of book copies
-    loanOpCh <- struct{}{}
-    defer func() { <-loanOpCh }()
-    book.TotalCopies += req.Quantity
-    book.AvailableCopies += req.Quantity
-    _, err = repo.UpdateBook(book)
-    if err != nil {
-        return c.JSON(http.StatusInternalServerError, echo.Map{"error": "خطا در بروزرسانی کتاب"})
-    }
-    return c.JSON(http.StatusOK, echo.Map{
-        "message": "تعداد نسخه‌ها افزایش یافت",
-        "book":    book,
-    })
+	repo := c.Get("book_repo").(*repository.BookRepository)
+	id, _ := strconv.Atoi(c.Param("id"))
+	var req IncreaseCopiesRequest
+	if err := c.Bind(&req); err != nil || req.Quantity <= 0 {
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": "درخواست نامعتبر یا مقدار نامعتبر"})
+	}
+	book, err := repo.GetBookByID(id)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "خطا در واکشی کتاب"})
+	}
+	if book == nil {
+		return c.JSON(http.StatusNotFound, echo.Map{"error": "کتاب پیدا نشد"})
+	}
+
+	// سریال‌سازی عملیات افزایش نسخه‌ها
+	bookOpCh <- struct{}{}
+	defer func() { <-bookOpCh }()
+
+	book.TotalCopies += req.Quantity
+	book.AvailableCopies += req.Quantity
+	_, err = repo.UpdateBook(book)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "خطا در بروزرسانی کتاب"})
+	}
+	return c.JSON(http.StatusOK, echo.Map{
+		"message": "تعداد نسخه‌ها افزایش یافت",
+		"book":    book,
+	})
 }
