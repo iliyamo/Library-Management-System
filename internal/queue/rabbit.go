@@ -1,7 +1,7 @@
 // internal/queue/rabbit.go
 //
-// Minimal RabbitMQ wrapper: holds a connection/channel, declares the required
-// queues, and provides helpers to publish JSON/text messages.
+// بسته‌بندی ساده RabbitMQ: اتصال و کانال را نگه می‌دارد، صف‌های مورد نیاز را اعلام می‌کند،
+// و کمک‌کننده‌هایی برای انتشار پیام‌های JSON/متن ارائه می‌دهد.
 
 package queue
 
@@ -17,21 +17,26 @@ import (
 	"github.com/iliyamo/Library-Management-System/internal/model"
 )
 
-// RabbitMQClient holds the AMQP connection and channel used for publishing messages.
+// GetRabbitClient کلاینت RabbitMQ را برای دسترسی خارجی برمی‌گرداند.
+func GetRabbitClient() *RabbitMQClient {
+	return rabbitClient // rabbitClient که در همین فایل تعریف شده رو برمی‌گردونه
+}
+
+// RabbitMQClient اتصال و کانال AMQP را برای انتشار پیام‌ها نگه می‌دارد.
 type RabbitMQClient struct {
 	Conn    *amqp.Connection
 	Channel *amqp.Channel
 }
 
-// package-level singletons
+// متغیرهای سطح پکیج (singletonها)
 var (
 	rabbitClient  *RabbitMQClient
 	rabbitLogger  *log.Logger
 	rabbitLogFile *os.File
 )
 
-// InitRabbitMQ establishes a connection to RabbitMQ and declares durable queues.
-// If already initialised, it’s a no-op.
+// InitRabbitMQ اتصال به RabbitMQ را برقرار می‌کند و صف‌های پایدار را اعلام می‌کند.
+// اگر قبلاً اولیه‌سازی شده باشد، هیچ کاری نمی‌کند.
 func InitRabbitMQ(amqpURL string) error {
 	if rabbitClient != nil {
 		return nil
@@ -39,15 +44,15 @@ func InitRabbitMQ(amqpURL string) error {
 
 	conn, err := amqp.Dial(amqpURL)
 	if err != nil {
-		return fmt.Errorf("failed to connect to RabbitMQ: %w", err)
+		return fmt.Errorf("اتصال به RabbitMQ شکست خورد: %w", err)
 	}
 	ch, err := conn.Channel()
 	if err != nil {
 		_ = conn.Close()
-		return fmt.Errorf("failed to open channel: %w", err)
+		return fmt.Errorf("باز کردن کانال شکست خورد: %w", err)
 	}
 
-	// Declare required queues (durable)
+	// اعلام صف‌های مورد نیاز (پایدار)
 	if err := declareQueues(ch); err != nil {
 		_ = ch.Close()
 		_ = conn.Close()
@@ -56,7 +61,7 @@ func InitRabbitMQ(amqpURL string) error {
 
 	rabbitClient = &RabbitMQClient{Conn: conn, Channel: ch}
 
-	// Dedicated logger → stdout + file
+	// لاگر اختصاصی → stdout + فایل
 	if rabbitLogger == nil {
 		if f, errf := os.OpenFile("rabbitmq.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644); errf == nil {
 			rabbitLogFile = f
@@ -67,41 +72,41 @@ func InitRabbitMQ(amqpURL string) error {
 		}
 	}
 	if rabbitLogger != nil {
-		rabbitLogger.Printf("✅ RabbitMQ connected; queues declared: %q, %q", LoanEventsQueue, LoanCommandsQueue)
+		rabbitLogger.Printf("✅ RabbitMQ متصل شد؛ صف‌ها اعلام شدند: %q, %q", LoanEventsQueue, LoanCommandsQueue)
 	} else {
-		log.Printf("✅ RabbitMQ connected; queues declared: %q, %q", LoanEventsQueue, LoanCommandsQueue)
+		log.Printf("✅ RabbitMQ متصل شد؛ صف‌ها اعلام شدند: %q, %q", LoanEventsQueue, LoanCommandsQueue)
 	}
 	return nil
 }
 
-// declareQueues ensures the needed queues exist (durable, non-autoDelete).
+// declareQueues مطمئن می‌شود صف‌های مورد نیاز وجود دارند (پایدار، بدون حذف خودکار).
 func declareQueues(ch *amqp.Channel) error {
 	queues := []string{LoanEventsQueue, LoanCommandsQueue}
 	for _, q := range queues {
 		if _, err := ch.QueueDeclare(
 			q,
-			true,  // durable
-			false, // autoDelete
-			false, // exclusive
-			false, // noWait
-			nil,   // args
+			true,  // پایدار
+			false, // حذف خودکار
+			false, // انحصاری
+			false, // بدون انتظار
+			nil,   // آرگومان‌ها
 		); err != nil {
-			return fmt.Errorf("failed to declare queue %q: %w", q, err)
+			return fmt.Errorf("اعلام صف %q شکست خورد: %w", q, err)
 		}
 	}
 	return nil
 }
 
-// PublishToRabbit publishes raw bytes to a specific queue (direct default exchange).
+// PublishToRabbit بایت‌های خام را به صف خاصی منتشر می‌کند (تبادل پیش‌فرض مستقیم).
 func PublishToRabbit(queue string, body []byte, contentType string) error {
 	if rabbitClient == nil || rabbitClient.Channel == nil {
-		return fmt.Errorf("RabbitMQ is not initialised")
+		return fmt.Errorf("RabbitMQ اولیه‌سازی نشده است")
 	}
 	if contentType == "" {
 		contentType = "text/plain"
 	}
 	if rabbitLogger != nil {
-		rabbitLogger.Printf("publishing to %s (%d bytes)", queue, len(body))
+		rabbitLogger.Printf("انتشار به %s (%d بایت)", queue, len(body))
 	}
 	return rabbitClient.Channel.Publish(
 		"",
@@ -115,19 +120,19 @@ func PublishToRabbit(queue string, body []byte, contentType string) error {
 	)
 }
 
-// PublishLoanEvent marshals and publishes a LoanEvent to the loan_events queue.
+// PublishLoanEvent یک LoanEvent را marshal می‌کند و به صف loan_events منتشر می‌کند.
 func PublishLoanEvent(event model.LoanEvent) error {
 	b, err := json.Marshal(event)
 	if err != nil {
-		return fmt.Errorf("failed to marshal event: %w", err)
+		return fmt.Errorf("marshal رویداد شکست خورد: %w", err)
 	}
 	if rabbitLogger != nil {
-		rabbitLogger.Printf("publishing event to %s: %+v", LoanEventsQueue, event)
+		rabbitLogger.Printf("انتشار رویداد به %s: %+v", LoanEventsQueue, event)
 	}
 	return PublishToRabbit(LoanEventsQueue, b, "application/json")
 }
 
-// CloseRabbitMQ closes channel/connection and the dedicated log file.
+// CloseRabbitMQ کانال/اتصال و فایل لاگ اختصاصی را می‌بندد.
 func CloseRabbitMQ() {
 	if rabbitClient != nil {
 		if rabbitClient.Channel != nil {

@@ -21,16 +21,19 @@ func NewRefreshTokenRepository(db *sql.DB) *RefreshTokenRepository {
 // - token: رشتهٔ توکن JWT برای تجدید
 // - userID: شناسهٔ کاربر صاحب توکن
 func (r *RefreshTokenRepository) Store(token string, userID int) error {
-	// کوئری SQL برای درج رکورد جدید در جدول refresh_tokens
-	query := `
-		INSERT INTO refresh_tokens (token, user_id, created_at)
-		VALUES (?, ?, ?)
-	`
+    // کوئری SQL برای درج رکورد جدید در جدول refresh_tokens.
+    // ستون expires_at در اسکریپت پایگاه داده به صورت NOT NULL تعریف شده است،
+    // و اگر مقدار آن را تنظیم نکنیم ممکن است درج با خطا مواجه شود (به ویژه
+    // وقتی sql_mode به صورت STRICT تنظیم شده باشد). بنابراین، expires_at را به
+    // صورت صریح برابر با زمان انقضای توکن refresh (۷ روز پس از ایجاد) قرار می‌دهیم.
+    expiry := time.Now().Add(7 * 24 * time.Hour)
+    query := `
+        INSERT INTO refresh_tokens (token, user_id, expires_at, created_at)
+        VALUES (?, ?, ?, ?)
+    `
 
-	// اجرای کوئری با پارامترهای token، userID و زمان فعلی
-	_, err := r.DB.Exec(query, token, userID, time.Now())
-	// ارور اجرایی را مستقیماً بازمی‌گرداند
-	return err
+    _, err := r.DB.Exec(query, token, userID, expiry, time.Now())
+    return err
 }
 
 // DeleteAll تمام توکن‌های تجدید مربوط به یک userID را حذف می‌کند.

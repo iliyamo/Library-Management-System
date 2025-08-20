@@ -18,6 +18,7 @@ import (
 	amqp "github.com/streadway/amqp"
 
 	"github.com/iliyamo/Library-Management-System/internal/database"
+	"github.com/iliyamo/Library-Management-System/internal/model" // برای LoanEvent در handler consumer
 	"github.com/iliyamo/Library-Management-System/internal/queue"
 	"github.com/iliyamo/Library-Management-System/internal/repository"
 	"github.com/iliyamo/Library-Management-System/internal/router"
@@ -69,73 +70,26 @@ func NewApp() (*App, error) {
 	queue.InitQueue() // صف مورد استفاده برای ناشران پیام‌ها
 
 	// ایجاد مخزن‌های داده برای انجام عملیات بر روی موجودیت‌ها
-	userRepo := repository.NewUserRepository(db)
-	refreshRepo := repository.NewRefreshTokenRepository(db)
-	authorRepo := repository.NewAuthorRepository(db)
-	bookRepo := repository.NewBookRepository(db)
-	loanRepo := repository.NewLoanRepository(db)
+	userRepo := repository.NewUserRepository(db)            // مخزن کاربران
+	refreshRepo := repository.NewRefreshTokenRepository(db) // مخزن توکن‌های ریفرش
+	authorRepo := repository.NewAuthorRepository(db)        // مخزن نویسندگان
+	bookRepo := repository.NewBookRepository(db)            // مخزن کتاب‌ها
+	loanRepo := repository.NewLoanRepository(db)            // مخزن وام‌ها
 
-	var (
-		rabbitConn       *amqp.Connection
-		rabbitChan       *amqp.Channel
-		consumersStarted int
-	)
-
-	// اتصال به RabbitMQ برای ارسال و دریافت پیام‌ها
-	amqpURL := os.Getenv("RABBITMQ_URL")                                 // دریافت آدرس RabbitMQ از متغیر محیطی
-	log.Printf("[Boot] RABBITMQ_URL=%q | Redis=%v", amqpURL, rdb != nil) // نمایش لاگ وضعیت اتصال به RabbitMQ و Redis
-
-	// اگر آدرس RabbitMQ وجود دارد، اتصال برقرار می‌کنیم
-	if amqpURL != "" {
-		conn, err := amqp.Dial(amqpURL) // اتصال به RabbitMQ
-		if err != nil {
-			log.Printf("[Queue] ❌ Rabbit dial failed: %v", err) // در صورت عدم اتصال، خطا را لاگ می‌کنیم
-		} else {
-			rabbitConn = conn
-			ch, err := conn.Channel() // ایجاد کانال برای ارسال و دریافت پیام
-			if err != nil {
-				log.Printf("[Queue] ❌ Rabbit channel failed: %v", err) // در صورت ایجاد نشدن کانال، خطا را لاگ می‌کنیم
-			} else {
-				rabbitChan = ch
-				// راه‌اندازی مصرف‌کننده پیام‌های وام
-				if err := queue.StartLoanCommandConsumerRabbit(rabbitChan, loanRepo, bookRepo); err != nil {
-					log.Printf("[Queue] ❌ StartLoanCommandConsumerRabbit failed: %v", err)
-				} else {
-					consumersStarted++
-					log.Printf("[Queue] ✅ LoanCommand Rabbit consumer started") // مصرف‌کننده با موفقیت شروع شد
-				}
-			}
-		}
-
-		// راه‌اندازی مصرف‌کننده رویدادها برای RabbitMQ
-		if err := queue.StartRabbitConsumer(amqpURL, queue.ExampleHandler); err != nil {
-			log.Printf("[Queue] ⚠️ StartRabbitConsumer(events) failed: %v", err)
-		} else {
-			log.Printf("[Queue] ✅ LoanEvent Rabbit consumer started") // مصرف‌کننده رویدادها با موفقیت شروع شد
+	// دریافت اتصال و کانال RabbitMQ (اگر در InitQueue تنظیم شده باشد)
+	var rabbitConn *amqp.Connection
+	var rabbitChan *amqp.Channel
+	if queue.UsingRabbit() {
+		client := queue.GetRabbitClient() // استفاده از getter جدید
+		if client != nil {
+			rabbitConn = client.Conn
+			rabbitChan = client.Channel
 		}
 	}
 
-	// همیشه مصرف‌کننده Redis را نیز برای ایمنی شروع می‌کنیم
-	if rdb != nil {
-		ctx := context.Background()
-		if err := queue.StartLoanCommandConsumerRedis(ctx, rdb, loanRepo, bookRepo); err != nil {
-			log.Printf("[Queue] ⚠️ StartLoanCommandConsumerRedis failed: %v", err) // در صورت خطا، لاگ می‌کنیم
-		} else {
-			consumersStarted++
-			log.Printf("[Queue] ✅ LoanCommand Redis consumer started") // مصرف‌کننده Redis با موفقیت شروع شد
-		}
-		queue.StartLoanConsumer(rdb, queue.ExampleHandler) // شروع مصرف‌کننده‌های دیگر
-	}
-
-	// اگر هیچ مصرف‌کننده‌ای راه‌اندازی نشده باشد، هشدار می‌دهیم
-	if consumersStarted == 0 {
-		log.Printf("[Queue] 🚫 No consumers started! Messages will pile up. Check RABBITMQ_URL/Redis and wiring.")
-	}
-
-	// راه‌اندازی سرور Echo
-	e := echo.New()
-	e.HideBanner = true         // مخفی کردن بنر پیش‌فرض Echo
-	e.Use(middleware.Recover()) // استفاده از میانه‌رو برای بازیابی از خطاها
+	// ایجاد سرور Echo
+	e := echo.New()             // ایجاد نمونه Echo
+	e.Use(middleware.Recover()) // میانه‌رو برای بازیابی از خطاها
 	e.Use(middleware.Logger())  // استفاده از میانه‌رو برای لاگ کردن درخواست‌ها
 
 	// اضافه کردن مخازن داده به کانتکست درخواست‌ها
@@ -199,6 +153,37 @@ func main() {
 		IdleTimeout:  60 * time.Second, // زمان‌تایم اوت زمانی که سرور بیکار است
 	}
 
+	// *** جدید: شروع consumerها در goroutineها برای پردازش صف‌ها ***
+	ctx := context.Background()
+	if queue.UsingRabbit() { // اگر RabbitMQ فعال باشد
+		// شروع consumer برای فرمان‌های وام (loan_commands)
+		go func() {
+			if err := queue.StartLoanCommandConsumerRabbit(app.RabbitChan, app.LoanRepo, app.BookRepo); err != nil {
+				log.Printf("خطا در شروع consumer فرمان‌های RabbitMQ: %v", err)
+			}
+		}()
+
+		// شروع consumer برای رویدادهای وام (loan_events) با هندلر ساده (لاگ یا نوتیفیکیشن)
+		go func() {
+			amqpURL := os.Getenv("RABBITMQ_URL")
+			if err := queue.StartRabbitConsumer(amqpURL, func(evt model.LoanEvent) {
+				// هندلر ساده: لاگ کردن یا ارسال نوتیفیکیشن (مثلاً به کاربر)
+				log.Printf("رویداد پردازش شد: نوع=%s, شناسه وام=%d, شناسه کاربر=%d, شناسه کتاب=%d", evt.EventType, evt.LoanID, evt.UserID, evt.BookID)
+				// TODO: اضافه کردن نوتیفیکیشن واقعی، مثل "کتاب با موفقیت امانت گرفته شد" به کاربر (از طریق ایمیل یا WebSocket)
+			}); err != nil {
+				log.Printf("خطا در شروع consumer رویدادهای RabbitMQ: %v", err)
+			}
+		}()
+	} else if app.Redis != nil { // fallback به Redis اگر RabbitMQ نباشد
+		// شروع consumer برای فرمان‌های Redis
+		go func() {
+			if err := queue.StartLoanCommandConsumerRedis(ctx, app.Redis, app.LoanRepo, app.BookRepo); err != nil {
+				log.Printf("خطا در شروع consumer فرمان‌های Redis: %v", err)
+			}
+		}()
+		// برای رویدادها، می‌توانید consumer مشابه Redis اضافه کنید اگر لازم باشد
+	}
+
 	// شروع سرور در یک گوروتین
 	go func() {
 		log.Printf("🚀 Server listening on http://localhost:%s", port)
@@ -219,5 +204,3 @@ func main() {
 	defer cancel()
 	_ = app.Server.Shutdown(ctx)
 }
-
-//a
